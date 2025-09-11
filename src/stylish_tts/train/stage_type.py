@@ -2,6 +2,7 @@ import random
 from typing import Callable, List, Optional, Tuple
 import torch
 from torch.nn import functional as F
+from torch.nn.utils.rnn import pack_padded_sequence
 import torchaudio
 from einops import rearrange
 from stylish_tts.train.loss_log import LossLog, build_loss_log
@@ -491,6 +492,11 @@ def train_duration(
     batch, model, train, probing
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     targets = train.duration_processor.align_to_class(batch.alignment)
+    # model.duration_predictor.dropout.batch_targets = rearrange(targets, "b k -> (b k)")
+    packed_targets = pack_padded_sequence(
+        targets, batch.text_length.cpu(), batch_first=True, enforce_sorted=False
+    )
+    model.duration_predictor.dropout.batch_targets = packed_targets.data
     duration = model.duration_predictor(batch.text, batch.text_length)
     train.stage.optimizer.zero_grad()
     loss_ce, loss_cdw = train.duration_loss(duration, targets, batch.text_length)
