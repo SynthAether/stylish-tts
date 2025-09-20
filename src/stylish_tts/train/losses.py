@@ -41,17 +41,18 @@ def anti_wrapping_loss(phase_diff, weights):
 
 
 def differential_phase_loss(pred, target, n_fft):
-    weights = torch.arange(n_fft // 2 + 1).to(pred.device)
-    base = math.exp(math.log(2.5) / (n_fft // 2))
+    freq_size = target.shape[1]
+    weights = torch.arange(freq_size).to(pred.device)
+    base = math.exp(math.log(2.5) / (freq_size // 2))
     weights = torch.pow(base, weights)
     weights = rearrange(weights, "w -> 1 w 1")
 
     phase_loss = anti_wrapping_loss(pred - target, weights).mean()
 
     freq_matrix = (
-        torch.triu(torch.ones(n_fft // 2 + 1, n_fft // 2 + 1), diagonal=1)
-        - torch.triu(torch.ones(n_fft // 2 + 1, n_fft // 2 + 1), diagonal=2)
-        - torch.eye(n_fft // 2 + 1)
+        torch.triu(torch.ones(freq_size, freq_size), diagonal=1)
+        - torch.triu(torch.ones(freq_size, freq_size), diagonal=2)
+        - torch.eye(freq_size)
     )
     freq_matrix = freq_matrix.to(pred.device)
     pred_freq = torch.matmul(pred.transpose(1, 2), freq_matrix)
@@ -114,7 +115,9 @@ class MagPhaseLoss(torch.nn.Module):
             window=self.window,
         )
         target_mag = torch.abs(y_stft) + 1e-14
-        target_phase = torch.angle(y_stft)
+        target_phase = (target_mag > 1e-3).detach() * torch.angle(y_stft)
+        pred.phase = (target_mag > 1e-3).detach() * pred.phase
+        # target_phase = torch.angle(y_stft)
         log.add_loss(
             "mag",
             torch.nn.functional.l1_loss(
