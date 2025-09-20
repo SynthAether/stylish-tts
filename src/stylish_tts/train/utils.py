@@ -433,8 +433,14 @@ class DurationProcessor(torch.nn.Module):
         )
         self.register_buffer("dur_to_class_table", dur_to_class_table)
 
-    def class_to_dur_soft(self, class_dist):
-        return class_dist * self.class_to_dur_table
+    # def class_to_dur_soft(self, class_dist):
+    #     return class_dist * self.class_to_dur_table
+
+    def class_to_dur_soft(self, softdur):
+        result = (softdur * self.class_to_dur_table).sum(dim=-1) / (
+            softdur.sum(dim=-1) + 1e-9
+        )
+        return result
 
     def class_to_dur_hard(self, classes):
         classes = classes.clamp(min=0, max=self.class_count)
@@ -450,10 +456,14 @@ class DurationProcessor(torch.nn.Module):
         return result
 
     def prediction_to_duration(self, pred, text_length):
-        softdur = self.class_to_dur_soft(torch.softmax(pred, dim=-1))
-        softdur = softdur.sum(dim=-1).round().clamp(min=1)
-        argdur = self.class_to_dur_hard(torch.argmax(pred, dim=-1).long())
-        dur = (argdur * (argdur < 7)) + (softdur * (argdur >= 7))
+        # softdur = self.class_to_dur_soft(torch.softmax(pred, dim=-1))
+        # softdur = softdur.sum(dim=-1).round().clamp(min=1)
+        # argmax = torch.argmax(pred, dim=-1).long()
+        # argdur = self.class_to_dur_hard(argmax)
+        confidence = torch.softmax(pred, dim=-1)
+        softdur = self.class_to_dur_soft(confidence)
+        dur = softdur
+        # dur = (argdur * (argdur < 7)) + (softdur * (argdur >= 7))
         # dur = dur[:text_length]
         return dur
 

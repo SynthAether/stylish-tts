@@ -55,10 +55,10 @@ mel_style_encoder:
   skip_downsample: True
 
 duration_predictor:
-  n_layer: 4
+  n_layer: 3
   duration_classes: 16
   max_duration: 50
-  dropout: 0.2
+  dropout: 0.5
   last_dropout: 0.5
 
 pitch_energy_predictor:
