@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 import torchaudio
 from einops import rearrange
 from stylish_tts.train.loss_log import LossLog, build_loss_log
-from stylish_tts.train.utils import print_gpu_vram, log_norm
+from stylish_tts.train.utils import print_gpu_vram, log_norm, length_to_mask
 from typing import List
 from stylish_tts.train.losses import multi_phase_loss
 
@@ -492,18 +492,23 @@ def train_duration(
     batch, model, train, probing
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     targets = train.duration_processor.align_to_class(batch.alignment)
-    # model.duration_predictor.dropout.batch_targets = rearrange(targets, "b k -> (b k)")
-    packed_targets = pack_padded_sequence(
-        targets, batch.text_length.cpu(), batch_first=True, enforce_sorted=False
-    )
-    model.duration_predictor.dropout.batch_targets = packed_targets.data
     duration = model.duration_predictor(batch.text, batch.text_length)
+    target_dur = batch.alignment.sum(dim=-1)
+
     train.stage.optimizer.zero_grad()
+    duration_loss = 0
+    for i in range(duration.shape[0]):
+        dur = train.duration_processor.prediction_to_duration(
+            duration[i], batch.text_length[i]
+        )
+        dur = dur[: batch.text_length[i]]
+        duration_loss += F.smooth_l1_loss(dur, target_dur[i, : batch.text_length[i]])
+
     loss_ce, loss_cdw = train.duration_loss(duration, targets, batch.text_length)
 
     log = build_loss_log(train)
     log.add_loss("duration_ce", loss_ce)
-    log.add_loss("duration", loss_cdw)
+    log.add_loss("duration", duration_loss / duration.shape[0])  # loss_cdw)
     train.accelerator.backward(log.backwards_loss())
 
     return log.detach(), None, None
@@ -516,12 +521,15 @@ def validate_duration(batch, train):
         pe_text_encoding, batch.text_length
     )
     duration = train.model.duration_predictor(batch.text, batch.text_length)
+    target_dur = batch.alignment.sum(dim=-1)
     results = []
+    duration_loss = 0
     for i in range(duration.shape[0]):
         dur = train.duration_processor.prediction_to_duration(
             duration[i], batch.text_length[i]
         )
         dur = dur[: batch.text_length[i]]
+        duration_loss += F.smooth_l1_loss(dur, target_dur[i, : batch.text_length[i]])
         alignment = train.duration_processor.duration_to_alignment(dur)
         alignment = rearrange(alignment, "t a -> 1 t a")
         pred_pitch, pred_energy = train.model.pitch_energy_predictor(
@@ -546,7 +554,7 @@ def validate_duration(batch, train):
         batch.text_length,
     )
     log.add_loss("duration_ce", loss_ce)
-    log.add_loss("duration", loss_cdw)
+    log.add_loss("duration", duration_loss / duration.shape[0])  # loss_cdw)
     # log.add_loss("duration", loss_dur)
 
     return log.detach(), alignment[0], results, batch.audio_gt

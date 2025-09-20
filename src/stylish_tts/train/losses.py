@@ -368,17 +368,19 @@ class CDW_CCELoss(nn.Module):
 class DurationLoss(torch.nn.Module):
     def __init__(self, *, class_count, weight):
         super(DurationLoss, self).__init__()
-        self.loss = CDW_CCELoss(class_count, alpha=2, weight=weight)
+        self.loss = torch.nn.CrossEntropyLoss(weight=torch.sqrt(weight))
+        # self.loss = CDW_CCELoss(class_count, alpha=2, weight=weight)
 
     def forward(self, pred: torch.Tensor, gt: torch.Tensor, text_length: torch.Tensor):
         loss_ce = 0
         loss_cdw = 0
         for i in range(text_length.shape[0]):
-            ce, cdw = self.loss(
-                pred[i, : text_length[i]], gt[i, : text_length[i]].long()
-            )
+            # ce, cdw = self.loss(
+            #     pred[i, : text_length[i]], gt[i, : text_length[i]].long()
+            # )
+            ce = self.loss(pred[i, : text_length[i]], gt[i, : text_length[i]].long())
             loss_ce += ce
-            loss_cdw += cdw
+            # loss_cdw += cdw
         return loss_ce / text_length.shape[0], loss_cdw / text_length.shape[0]
 
 
