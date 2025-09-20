@@ -182,9 +182,10 @@ The `training_plan` section provides parameters for each stage of training. With
 - If you have a GPU with a lot of VRAM, you will want to have higher `probe_batch_max`. TDODO: Guidance
 - If you are training using a CPU or are using an architecture with unified memory (like Mac), set `probe_max_batch` to 2 for every stage. The batch probing works by pushing until it runs out of memory. That will make you sad if this is system memory instead of VRAM memory.
 
-The `dataset` section is described later.
-
-The `validation` section allows you to adjust which samples are exported to tensorflow. 
+For the remainder:
+- The `dataset` section is described later.
+- The `validation` section allows you to adjust which samples are exported to tensorflow.
+- The `loss_weight` section provides relative weights for different kinds of loss. These are tuned and should not be changed unless you know what you are doing.
 
 ### 3.2 Preparing Your Dataset
 
@@ -202,7 +203,7 @@ The `validation` section allows you to adjust which samples are exported to tens
     alignment_model_path: "alignment_model.safetensors"
   ```
 
-- Your structure of your dataset folder might look something like this:
+- The structure of your dataset folder might look something like this:
   ```
   path/to/your/dataset/             # Root
   |
@@ -225,10 +226,9 @@ The `validation` section allows you to adjust which samples are exported to tens
   +-> alignment_model.safetensors   # Model for generating alignments. You will train this (gets generated at `alignment_model_path`  in `my_config.yml`. See below)
 
   ```
-- Note: A sample dataset can be found at [sample_dataset/](sample_dataset/). Please note that this has been provided as a reference only, and will in no way be sufficient to train a model.
 
 - A dataset consists of many segments. Each segment has a written text and an audio file where that text is spoken by a reader.
-- Your dataset should be in the following format:
+- Your dataset should have the following files:
   - your Training List (corresponding to train_data in `my_config.yml`)
   - your Validation List (corresponding to val_data in `my_config.yml`)
   - your Folder with audio wav files (resampled at 24 khz, mono), one for each segment (corresponding to wav_path in `my_config.yml`)
@@ -236,17 +236,14 @@ The `validation` section allows you to adjust which samples are exported to tens
 - Segment Distribution:
   - Segments must have 510 phonemes or less.
   - Audio segments must be at least 0.25 seconds long.
-  - The upper limit on audio length is determined by your VRAM and the training stage. If you have enough VRAM, you can include even longer segments, though there is an upper limit (because of diminishing returns).
+  - The upper limit on audio length is determined by your VRAM and the training stage. If you have enough VRAM, you can include even longer segments, though there are diminishing returns in the usefulness of very long segments.
   - Generally speaking, you will want to have a distribution of segments between 0.25 seconds and 10 seconds long.
     - If your range doesn't cover the shortest lengths, your model will sound worse when doing short utterances of one word or a few words.
     - If your range doesn't cover longer lengths which include multiple sentences, your model will tend to skip past punctuation too quickly.
 
-- Folder with audio wav files, one for each segment:
-  - Each segment audio should be a .wav file (resampled at 24 khz, mono) in the wav_path folder specified in your `my_config.yml`.
-
 - Training List and Validation List:
   - Training and Validation lists are a series of lines in the following format: `<filename>|<phonemes>|<speaker-id>|<plaintext>`
-  - Once you have created a new Training List file, manually take ~1% of the entries from that file, and move it into your new Validation List file.
+  - The training list should consist of roughly 99% of your segments and the validation list should consist of the remainder.
   - Examples of entries in the Training and Validation lists:
       - `1.wav|ɔnðə kˈɑːntɹɛɹi|0|On the contrary`
       - `2.wav|fɚðə fˈɜːst tˈaɪm|0|For the first time`
