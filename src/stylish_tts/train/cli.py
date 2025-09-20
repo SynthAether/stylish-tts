@@ -49,9 +49,9 @@ def cli():
     Once you have pre-cached alignments and pitches, you can `train` your model, and finally `convert` your model to ONNX for inference.
 
     """
-    multiprocessing.set_start_method("forkserver")
+    # multiprocessing.set_start_method("forkserver")
     # torch.multiprocessing.set_sharing_strategy("file_system")
-    print("Setting multiprocessing start method to spawn.")
+    # print("Setting multiprocessing start method to spawn.")
 
 
 ##### train-align #####
