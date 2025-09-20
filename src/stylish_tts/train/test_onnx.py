@@ -31,7 +31,6 @@ def main(speech, duration, text, combine):
         model_config
     ), "model_config metadata not found. Please rerun ONNX conversion."
     model_config = ModelConfig.model_validate_json(model_config)
-    # model_config = load_model_config_yaml(model_config_path)
     text_cleaner = TextCleaner(model_config.symbol)
     dur_session = ort.InferenceSession(
         duration,
