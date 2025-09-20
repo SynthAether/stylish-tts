@@ -1,6 +1,10 @@
 
+<style type="text/css">
+  summary { background-color: "#a0ffa0" }
+</style>
+
 # Stylish TTS (Text-To-Speech) System For Model Training
-<img src="https://img.icons8.com/?size=512&id=i46MwMdULdEi&format=png" alt="Alt text" width="100">
+<!-- <img src="https://img.icons8.com/?size=512&id=i46MwMdULdEi&format=png" alt="Alt text" width="100"> -->
 
 # Quick Links:
 1. [What is Stylish TTS?](#1-what-is-stylish-tts)
@@ -26,30 +30,104 @@
 # 1. What is Stylish TTS?
 
 ### 1.1 Overview
-- Stylish TTS is a lightweight, high-performance Text-To-Speech (TTS) system for training TTS models that are suitable for offline local use. It is possibly also the easiest and fastest way to train your own TTS model.
-- The architecture was based on [StyleTTS 2](https://github.com/yl4579/StyleTTS2), but has now diverged substantially and has been made more performant.
-- Our focus is to give you the ability to train high quality, single-speaker text-to-speech models (rather than zero-shot voice cloning), with the goal of offering consistent text-to-speech results for long-form text and in applications like screen reading.
+- Stylish TTS is a lightweight, high-performance Text-To-Speech (TTS) system for training TTS models that are suitable for offline local use. Our focus has been to reduce training cost and difficulty while maintaining quality.
+- The architecture was based on [StyleTTS 2](https://github.com/yl4579/StyleTTS2), but has now diverged substantially.
+- The current goal is to allow training high quality, single-speaker text-to-speech models (rather than zero-shot voice cloning) as well as offering consistent text-to-speech results for long-form text and screen reading.
 
 ### 1.2 Current Status
-- Stylish TTS is currently in Beta, and our team has tested it on Ubuntu / Linux, Windows and Mac (Apple Silicon)! Stylish TTS is quickly approaching its [v1.0 release](#5-roadmap-to-v10-release), but it is ready for you to try out now!
+- Stylish TTS is currently in Alpha/testing. It has been mostly tested with Linux and NVidia hardware, though it should be feasible to train it work using other graphics cards or even on CPU. We are currently working on adding support for Mac hardware. Stylish TTS is approaching the [v1.0 release](#5-roadmap-to-v10-release). Feel free to try it now, though remember that we still might make breaking changes before release and many scenarios are untested.
 
 
 # 2. Getting Started
 
-### 2.1 Dependencies:
+### 2.1 Inference
+
+Complete models are converted to ONNX and so you will need a version of the onnx runtime.
+TBD: More dependencies as we flesh out inference
+
+### 2.1 Training:
+
 In order to train your model, you will need:
-- a GPU (or a CPU and plenty of time) with PyTorch support
-- (Nice-to-have) the NVIDIA / CUDA drivers / system
-- a large(ish) [Dataset](#32-preparing-your-dataset)
+- A GPU (or a CPU and plenty of time) with PyTorch support and at least 16GB of VRAM
+- Appropriate drivers and software for your GPU installed
+- A [Dataset](#32-preparing-your-dataset) for your model with at least 25 hours of text/audio pairs
+	- You will be training a base model from scratch. So just a few minutes of data is not enough.
 
 
-### 2.2 Setup:
+### 2.2 Training Installation:
+
+Instructions are provided for both `uv` or `pip`. Install your preferred Python package manager and refer to the associated instructions.
+
+PyTorch notes:
+- Use the latest version of `torch` and `torchaudio` which supports your GPU. If your GPU is older and requires you to use an older version of `torch`, make sure to use the same version of `torchaudio` during training.
+- If you are using an older version of `torch` for training, make a separate virtual environment/directory to use during model conversion and use a device of `cpu` and the latest version of torch for project conversion. This will ensure that you are converting using the most up-to-date version of Torch Dynamo.
+
+`k2` notes:
+- Installing `k2` requires you to find the correct wheel from their installation page to install. Refer to thair [installation instructions](https://k2-fsa.github.io/k2/installation/index.html)
+- `k2` includes PyTorch version, Python version, CUDA version (for non-CPU installs), and OS as part of their URL. Make sure you pick the right one.
+- If you are using a non-cuda GPU, install the CPU variant of `k2` and during alignment training (the only place using k2), it will automatically fall back on the CPU device. Alignment training is reasonably fast even on CPU.
+- If you run into issues after installing, try removing `k2`, verifying that all the various versions are expected, then re-installing using the correct wheel.
+
+<details>
+	<summary>Installation via `uv`</summary>
+
+```
+# Create a folder for your uv project
+mkdir my-training-dir
+cd my-training-dir
+
+uv init
+# stylish-tts currently uses Python 3.12
+uv python install 3.12 --preview --default
+
+# Install pytorch and onnx.
+# Use onnxruntime-gpu if you want to do test inference with a GPU.
+uv add torch torchaudio onnxruntime
+
+# Install k2. Remember to use the <K2_URL> you found above via the k2 installation instructions
+uv add "k2 @ <K2_URL>"
+
+# Sync packages and verify that things work
+uv sync
+
+# Clone the stylish-tts source somewhere (TODO: Fix this when we upload a package)
+git clone https://github.com/Stylish-TTS/stylish-tts.git
+
+# Install stylish-tts as a local editable package
+uv add --editable stylish-tts/
+```
+
+</details>
+
+<details>
+	<summary>Installation via `pip`</summary>
+</details>
+
+
 
 | Step | **Command(s)**
 |--------|-----------------------------------------------------|
-| **Install 📦 uv or 🐍 pip** <br/><br/><details><summary><b>Expand: Why use 📦 uv over 🐍 pip?</b></summary>⚡ 10-100x faster installation<br/>🔒 Better dependency resolution<br/>🐍 Automatic Python management<br/>🎯 Drop-in pip replacement<br/></details>| <details><summary><b>Expand: how to set up 📦 uv</b></summary>- `pipx install uv` # Installs uv if you don't have it already<br/>- `pipx ensurepath` # Needed to use uv from the command line <br/>- Remember:<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Do not run `uv` inside another virtual environment.<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run <COMMAND>` will always also update the pyproject.toml and related project files.<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run python --version` is equivalent to `python --version`, except it is run within the uv virtual environment.<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run <COMMAND>` is similar to: `source .venv; <COMMAND>; exit`<br/></details><details><summary><b>Expand: how to set up 🐍 pip</b></summary>- `curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py`  # Downloads the installer<br/>- # or use wget: `wget https://bootstrap.pypa.io/get-pip.py`<br/>- `python get-pip.py` # Installs pip</details>|
-| **Install python 3.12** <br/>stylish-tts depends on python >= 3.12|- `uv python install 3.12 --preview --default` # Installs python 3.12 (stylish-tts depends on python >= 3.12)<br/>- `uv run python --version` # Verify that the python version is 3.12.x<br/><br/><details><summary><b>Expand: how to use with 🐍 pip</b></summary>- `pyenv install 3.12.7 && pyenv local 3.12.7` # Installs python 3.12 <br/>- `brew install python@3.12` # Install python 3.12 via Homebrew (on Mac)<br/>- `python --version` # Verify that the python version is 3.12.x</details>|
-| **Remove lock file**|- `rm uv.lock` # Remove lock file|
+| **Install 📦 uv or 🐍 pip** <br/><br/><details><summary><b>Expand: Why use 📦 uv over 🐍 pip?</b></summary>⚡ 10-100x faster installation<br/>🔒 Better dependency resolution<br/>🐍 Automatic Python management<br/>🎯 Drop-in pip replacement<br/></details>| <details><summary><b>Expand: how to set up 📦 uv</b></summary>- `pipx install uv` # Installs uv if you don't have it already<br/>- `pipx ensurepath` # Needed to use uv from the command line
+
+<br/>- Remember:<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Do not run `uv` inside another virtual environment.<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run <COMMAND>` will always also update the pyproject.toml and related project files.
+<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run python --version` is equivalent to `python --version`, except it is run within the uv virtual environment.
+<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run <COMMAND>` is similar to: `source .venv; <COMMAND>; exit
+<br/></details><details>
+
+<summary><b>Expand: how to set up 🐍 pip</b></summary>- `curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py`  # Downloads the installer<br/>- # or use wget: `wget https://bootstrap.pypa.io/get-pip.py`<br/>- `python get-pip.py` # Installs pip</details>|
+
+
+| **Install python 3.12** <br/>stylish-tts depends on python >= 3.12|
+- `uv python install 3.12 --preview --default` # Installs python 3.12 (stylish-tts depends on python >= 3.12)<br/>
+- `uv run python --version` # Verify that the python version is 3.12.x<br/><br/><details>
+
+<summary><b>Expand: how to use with 🐍 pip</b></summary>
+- `pyenv install 3.12.7 && pyenv local 3.12.7` # Installs python 3.12 <br/>
+- `brew install python@3.12` # Install python 3.12 via Homebrew (on Mac)<br/>
+- `python --version` # Verify that the python version is 3.12.x</details>|
+
+
+
 | **Set up new empty project** |- `mkdir my_stylish_tts_model_training`<br/>- `cd my_stylish_tts_model_training` |
 | **Create & activate new virtual env with python 3.12** |- `uv init` # will create pyproject.toml, main.py, & supporting files<br/><br/><details><summary><b>Expand: how to use with 🐍 pip</b></summary>- `python -m venv venv_py312`<br/>- `source venv_py312/bin/activate`<br/><br/><b>Note:</b><br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Make sure to activate your virtual environment (`source venv_py312/bin/activate` on Linux/Mac or `venv_py312\Scripts\activate` on Windows) before running any Python commands<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- The virtual environment needs to be activated each time you start a new terminal session to work on this project<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- You can deactivate the virtual environment by running `deactivate` when you're done working<br/></details>|
 | **Install dependencies** |- `uv add torch torchaudio onnxruntime` <br/>Note: Use `onnxruntime` if you cannot install `onnxruntime-gpu` (one of these will be needed later when using the ONNX model for inference)<br/><br/><details><summary><b>Expand: how to use with 🐍 pip</b></summary>`pip install torch torchaudio onnxruntime` <br/>Note: Use `onnxruntime` if you cannot install `onnxruntime-gpu` (one of these will be needed later when using the ONNX model for inference)<br/></details>|

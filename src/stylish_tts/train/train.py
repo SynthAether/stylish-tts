@@ -88,9 +88,13 @@ def train_model(
 
     train_logger = logging.getLogger(__name__)
 
-    if stage == "alignment" and config.training.device == "mps":
+    if (
+        stage == "alignment"
+        and config.training.device != "cuda"
+        and config.training.device != "cpu"
+    ):
         logger.info(
-            f"Alignment training does not support mps device. Falling back on cpu training."
+            f"Alignment training does not support device {config.training.device}. Falling back on cpu training."
         )
         config.training.device = "cpu"
 
