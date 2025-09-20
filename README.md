@@ -105,6 +105,9 @@ uv add --editable stylish-tts/
 	<summary>📘 <b>Installation via pip</b></summary>
 
 ```
+# stylish-tts currently uses Python 3.12
+pyenv install 3.12.7 && pyenv local 3.12.7
+
 # Create a folder for your uv project
 mkdir my-training-dir
 cd my-training-dir
