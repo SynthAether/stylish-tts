@@ -1,6 +1,4 @@
 
-# 🕶
-
 # Stylish TTS (Text-To-Speech) System For Model Training
 <!-- <img src="https://img.icons8.com/?size=512&id=i46MwMdULdEi&format=png" alt="Alt text" width="100"> -->
 
@@ -8,10 +6,9 @@
 1. [What is Stylish TTS?](#1-what-is-stylish-tts)
     1. [Overview](#11-overview)
     2. [Current Status](#12-current-status)
-2. [Getting Started](#2-getting-started)
-    1. [Dependencies](#21-dependencies)
-    2. [Setup](#22-setup)
-    3. [Installation](#23-installation)
+2. [Installation](#2-installation)
+    1. [Inference](#21-inference)
+    2. [Training](#22-training)
 3. [Training Your Model](#3-training-your-model)
     1. [Creating your config.yml file](#31-creating-your-configyml-file)
     2. [Preparing Your Dataset](#32-preparing-your-dataset)
@@ -36,33 +33,21 @@
 - Stylish TTS is currently in Alpha/testing. It has been mostly tested with Linux and NVidia hardware, though it should be feasible to train it work using other graphics cards or even on CPU. We are currently working on adding support for Mac hardware. Stylish TTS is approaching the [v1.0 release](#5-roadmap-to-v10-release). Feel free to try it now, though remember that we still might make breaking changes before release and many scenarios are untested.
 
 
-# 2. Getting Started
+# 2. Installation
 
 ### 2.1 Inference
 
 Complete models are converted to ONNX and so you will need a version of the onnx runtime.
 TBD: More dependencies as we flesh out inference
 
-### 2.1 Training:
-
-In order to train your model, you will need:
-- A GPU (or a CPU and plenty of time) with PyTorch support and at least 16GB of VRAM
-- Appropriate drivers and software for your GPU installed
-- A [Dataset](#32-preparing-your-dataset) for your model with at least 25 hours of text/audio pairs
-	- You will be training a base model from scratch. So just a few minutes of data is not enough.
-
-
-### 2.2 Training Installation:
+### 2.2 Training:
 
 Instructions are provided for both `uv` or `pip`. Install your preferred Python package manager and refer to the associated instructions.
 
-PyTorch notes:
-- Use the latest version of `torch` and `torchaudio` which supports your GPU. If your GPU is older and requires you to use an older version of `torch`, make sure to use the same version of `torchaudio` during training.
-- If you are using an older version of `torch` for training, make a separate virtual environment/directory to use during model conversion and use a device of `cpu` and the latest version of torch for project conversion. This will ensure that you are converting using the most up-to-date version of Torch Dynamo.
-
-`k2` notes:
+You will need to install `k2` during the installation process. This is a bit trickier than other dependencies:
 - Installing `k2` requires you to find the correct wheel from their installation page to install. Refer to thair [installation instructions](https://k2-fsa.github.io/k2/installation/index.html)
 - `k2` includes PyTorch version, Python version, CUDA version (for non-CPU installs), and OS as part of their URL. Make sure you pick the right one.
+- Use the proper wheel URL below where you see `<K2_URL>`
 - If you are using a non-cuda GPU, install the CPU variant of `k2` and during alignment training (the only place using k2), it will automatically fall back on the CPU device. Alignment training is reasonably fast even on CPU.
 - If you run into issues after installing, try removing `k2`, verifying that all the various versions are expected, then re-installing using the correct wheel.
 
@@ -140,16 +125,66 @@ pip install -e stylish-tts/
 
 </details>
 
+### Extras
+
+<details>
+  <summary>📘 <b>Optional Dependency: tensorboard</b></summary>
+
+`tensorboard` is a separate application you can run which lets you see graphs of your loss functions and listen to samples produced at each validation.
+- Data for tensorboard is generated in your output directories regardless of whether tensorboard is installed.
+- tensorboard creates a HTTP server on localhost and provides a URL you can point your browser at to check on your training.
+- You can also see training data showing up in the `train.log` file, but this tends to be less useful than the interactive graphs provided by tensorboard.
+
+</details>
+
+<details>
+  <summary>📘 <b>PyTorch and old GPU cards</b></summary>
+
+The latest versions of PyTorch can drop support for older GPUs. If you have an old GPU:
+- Use the latest version of `torch` and `torchaudio` which supports your GPU. If your GPU is older and requires you to use an older version of `torch`, make sure to use the same version of `torchaudio` during training.
+- If you are using an older version of `torch` for training, make a separate virtual environment/directory to use during model conversion and use a device of `cpu` and the latest version of torch for project conversion. This will ensure that you are converting using the most up-to-date version of Torch Dynamo.
+
+</details>
+
 
 # 3. Training Your Model
 
+In order to train your model, you will need:
+- A GPU (or a CPU and plenty of time) with PyTorch support and at least 16GB of VRAM
+- Appropriate drivers and software for your GPU installed
+- A [Dataset](#32-preparing-your-dataset) for your model with at least 25 hours of text/audio pairs
+	- You will be training a base model from scratch. So just a few minutes of data is not enough.
+
 ### 3.1 Creating your config.yml file
 - You will need your own `config.yml` file (say `my_config.yml`) created from the template [here](https://github.com/Stylish-TTS/stylish-tts/blob/main/config/config.yml). You can store it anywhere, like at the root of your project.
-- In your `my_config.yml` file, you will need to specify the device ("cuda", "mps", "cpu" or whatever will work with your torch installation). For example:
+
+The `training` section provides overall training parameters.
+- How often to log training data, how often to save a checkpoint, and how often to run a validation to see how the model is doing can all be set to your personal preference of impatience vs. overhead. `log_interval`, `save_interval`, and `val_interval` are all in steps.
+- You will need to specify the `device` ("cuda", "mps", "cpu" or whatever will work with your torch installation).
+- `vram_reserve` allocates an extra block of memory when probing how big batch sizes can be. It reduces the odds of having out-of-memory events.
+- `data_workers` sets how many processes will be used to prepare data for training. If your GPU is under-utilized and you have spare CPU cores, you can set this higher to go faster.
+
+For example:
   ```
-  training:
-    device: "mps"
+	training:
+	  log_interval: 1000
+	  save_interval: 5000
+	  val_interval: 5000
+	  device: "cuda"
+	  mixed_precision: "no"
+	  vram_reserve: 200
+	  data_workers: 32
   ```
+
+The `training_plan` section provides parameters for each stage of training. With more testing we'll provide concrete guidelines for each of this.
+- Generally, leave the learning rate (`lr`) alone as this has been tuned.
+- If you have a small dataset, you will want to increase the number of `epochs`. TODO: Guidance
+- If you have a GPU with a lot of VRAM, you will want to have higher `probe_batch_max`. TDODO: Guidance
+- If you are training using a CPU or are using an architecture with unified memory (like Mac), set `probe_max_batch` to 2 for every stage. The batch probing works by pushing until it runs out of memory. That will make you sad if this is system memory instead of VRAM memory.
+
+The `dataset` section is described later.
+
+The `validation` section allows you to adjust which samples are exported to tensorflow. 
 
 ### 3.2 Preparing Your Dataset
 
