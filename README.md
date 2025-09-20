@@ -1,7 +1,5 @@
 
-<style type="text/css">
-  summary { background-color: "#a0ffa0" }
-</style>
+# 🕶
 
 # Stylish TTS (Text-To-Speech) System For Model Training
 <!-- <img src="https://img.icons8.com/?size=512&id=i46MwMdULdEi&format=png" alt="Alt text" width="100"> -->
@@ -69,7 +67,7 @@ PyTorch notes:
 - If you run into issues after installing, try removing `k2`, verifying that all the various versions are expected, then re-installing using the correct wheel.
 
 <details>
-	<summary>Installation via `uv`</summary>
+	<summary>📘 <b>Installation via uv</b></summary>
 
 ```
 # Create a folder for your uv project
@@ -90,56 +88,54 @@ uv add "k2 @ <K2_URL>"
 # Sync packages and verify that things work
 uv sync
 
+# Verify that k2 was installed successfully
+python -c "import k2; print('k2 installed successfully')"
+
 # Clone the stylish-tts source somewhere (TODO: Fix this when we upload a package)
 git clone https://github.com/Stylish-TTS/stylish-tts.git
 
 # Install stylish-tts as a local editable package
+# Automatically rebuilds if contents change
 uv add --editable stylish-tts/
 ```
 
 </details>
 
 <details>
-	<summary>Installation via `pip`</summary>
+	<summary>📘 <b>Installation via pip</b></summary>
+
+```
+# Create a folder for your uv project
+mkdir my-training-dir
+cd my-training-dir
+
+# Set up virtual environment
+python -m venv venv_py312
+# Activate virtual environment (needs to be done every time you begin a new session)
+source venv_py312/bin/activate
+
+# Install pytorch and onnx.
+# Use onnxruntime-gpu if you want to do test inference with a GPU.
+pip install torch torchaudio onnxruntime
+
+mkdir k2_install
+curl -L -o "k2_install/<K2_FILENAME>" "<K2_URL>"
+# Install k2 from the downloaded wheel
+pip install "k2_install/<K2_FILENAME>"
+
+# Verify that k2 was installed successfully
+python -c "import k2; print('k2 installed successfully')"
+
+# Clone the stylish-tts source somewhere (TODO: Fix this when we upload a package)
+git clone https://github.com/Stylish-TTS/stylish-tts.git
+
+# Install stylish-tts as a local editable package from the stylish-tts/ directory.
+# Automatically rebuilds if contents change.
+# IMPORTANT: Don't forget the trailing slash /
+pip install -e stylish-tts/
+```
+
 </details>
-
-
-
-| Step | **Command(s)**
-|--------|-----------------------------------------------------|
-| **Install 📦 uv or 🐍 pip** <br/><br/><details><summary><b>Expand: Why use 📦 uv over 🐍 pip?</b></summary>⚡ 10-100x faster installation<br/>🔒 Better dependency resolution<br/>🐍 Automatic Python management<br/>🎯 Drop-in pip replacement<br/></details>| <details><summary><b>Expand: how to set up 📦 uv</b></summary>- `pipx install uv` # Installs uv if you don't have it already<br/>- `pipx ensurepath` # Needed to use uv from the command line
-
-<br/>- Remember:<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Do not run `uv` inside another virtual environment.<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run <COMMAND>` will always also update the pyproject.toml and related project files.
-<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run python --version` is equivalent to `python --version`, except it is run within the uv virtual environment.
-<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run <COMMAND>` is similar to: `source .venv; <COMMAND>; exit
-<br/></details><details>
-
-<summary><b>Expand: how to set up 🐍 pip</b></summary>- `curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py`  # Downloads the installer<br/>- # or use wget: `wget https://bootstrap.pypa.io/get-pip.py`<br/>- `python get-pip.py` # Installs pip</details>|
-
-
-| **Install python 3.12** <br/>stylish-tts depends on python >= 3.12|
-- `uv python install 3.12 --preview --default` # Installs python 3.12 (stylish-tts depends on python >= 3.12)<br/>
-- `uv run python --version` # Verify that the python version is 3.12.x<br/><br/><details>
-
-<summary><b>Expand: how to use with 🐍 pip</b></summary>
-- `pyenv install 3.12.7 && pyenv local 3.12.7` # Installs python 3.12 <br/>
-- `brew install python@3.12` # Install python 3.12 via Homebrew (on Mac)<br/>
-- `python --version` # Verify that the python version is 3.12.x</details>|
-
-
-
-| **Set up new empty project** |- `mkdir my_stylish_tts_model_training`<br/>- `cd my_stylish_tts_model_training` |
-| **Create & activate new virtual env with python 3.12** |- `uv init` # will create pyproject.toml, main.py, & supporting files<br/><br/><details><summary><b>Expand: how to use with 🐍 pip</b></summary>- `python -m venv venv_py312`<br/>- `source venv_py312/bin/activate`<br/><br/><b>Note:</b><br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Make sure to activate your virtual environment (`source venv_py312/bin/activate` on Linux/Mac or `venv_py312\Scripts\activate` on Windows) before running any Python commands<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- The virtual environment needs to be activated each time you start a new terminal session to work on this project<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- You can deactivate the virtual environment by running `deactivate` when you're done working<br/></details>|
-| **Install dependencies** |- `uv add torch torchaudio onnxruntime` <br/>Note: Use `onnxruntime` if you cannot install `onnxruntime-gpu` (one of these will be needed later when using the ONNX model for inference)<br/><br/><details><summary><b>Expand: how to use with 🐍 pip</b></summary>`pip install torch torchaudio onnxruntime` <br/>Note: Use `onnxruntime` if you cannot install `onnxruntime-gpu` (one of these will be needed later when using the ONNX model for inference)<br/></details>|
-| **Install k2** |<details><summary><b>Expand: Find the right k2 version (for your OS, torch and python version)</b></summary>- First, find the appropriate k2 version (for your torch version, like 2.8.0 and cpython version, like 3.12) for your platform from https://huggingface.co/csukuangfj/k2/tree/main (there are subfolders for different platforms: cpu, cuda, macos, ubuntu-cuda, windows-cpu).<br/>- For example, if your platform is MacOS / Apple Silicon, you have cpython 3.12 and torch 2.8.0 installed, then the correct version of k2 would be: https://huggingface.co/csukuangfj/k2/resolve/main/macos/k2-1.24.4.dev20250807%2Bcpu.torch2.8.0-cp312-cp312-macosx_11_0_arm64.whl</details><details><summary><b>Expand: Download k2</b></summary>- `mkdir k2_installation_files`<br/>- `curl -L -o "k2_installation_files/k2-1.24.4.dev20250807+cpu.torch2.8.0-cp312-cp312-macosx_11_0_arm64.whl" "https://huggingface.co/csukuangfj/k2/resolve/main/macos/k2-1.24.4.dev20250807%2Bcpu.torch2.8.0-cp312-cp312-macosx_11_0_arm64.whl"`<br/><br/><b>Tips to prevent the above CURL command from failing...</b><br/>- In the first -o argument for the k2 file path (in this example, using `k2_installation_files/`), use `+` instead of `%2B`<br/>- In the second argument for the HuggingFace URL, use `%2B` and make sure the URL has `resolve/main` instead of `blob/main`</details><details><summary><b>Expand: Enable k2</b></summary>To enable k2, update pyproject.toml with the following:<br/>```requires-python = ">=3.12"```<br/>```dependencies = [```<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"k2",```<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"torch>=2.8.0",```<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;```"torchaudio>=2.8.0",```<br/>```]```<br/>```[tool.uv.sources]```<br/>```k2 = { path = "k2_installation_files/k2-1.24.4.dev20250807+cpu.torch2.8.0-cp312-cp312-macosx_11_0_arm64.whl" }```<br/><br/><b>Run:</b><br/>- `uv sync`<br/>- `uv run python --version`     # Verify that the python version is 3.12.x and it still works with k2 installed<br/>- `uv run python -c "import k2; print('k2 installed successfully')"` # Verify that k2 was installed successfully<br/><br/><b>How to use with 🐍 pip:</b><br/>- `pip install k2_installation_files/k2-1.24.4.dev20250807+cpu.torch2.8.0-cp312-cp312-macosx_11_0_arm64.whl` # Install k2 from the downloaded wheel<br/>- `python --version` # Verify that the python version is 3.12.x and it still works with k2 installed<br/>- `python -c "import k2; print('k2 installed successfully')"` # Verify that k2 was installed successfully<br/></details><details><summary><b>Expand: Troubleshooting k2 installation issues...</b></summary>- If `uv run python --version` fails because of k2, first remove k2, verify python version still works, and then try the k2 installation again with the proper k2 version from HuggingFace:<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv remove k2` # remove k2, or manually remove ALL references to k2 in pyproject.toml<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run python --version` # Verify that the python version is 3.12.x<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Then re-add the correct version of k2 from HuggingFace<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `uv run python --version` # Verify that the python version is 3.12.x with k2 installed<br/><br/><b>How to use with 🐍 pip:</b><br/>- If `python --version` fails because of k2, first uninstall k2, verify python version still works, and then try the k2 installation again with the proper k2 version from HuggingFace:<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `pip uninstall k2` # remove k2<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `python --version` # Verify that the python version is 3.12.x and it still works<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Then re-install the correct version of k2 from HuggingFace<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `python --version` # Verify that the python version is 3.12.x and it still works with k2 installed<br/><br/></details>|
-
-
-### 2.3 Installation:
-
-| Step | **Command(s)**
-|--------|-----------------------------------------------------|
-| **Clone stylish-tts Repo**|- From your `my_stylish_tts_model_training` directory, run:<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `git clone https://github.com/Stylish-TTS/stylish-tts.git`    # Clone the default branch of the style-tts repository (recommended)<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- OR<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- `git clone -b mactest https://github.com/Stylish-TTS/stylish-tts.git`  # Clone the style-tts repository, checkout the mactest branch instead of the default branch, and set mactest as your current working branch|
-| **Install stylish-tts**|- `uv add --editable stylish-tts/`   # Installs `stylish-tts` as a local editable package from the `stylish-tts/` directory, also automatically rebuilds it if its contents change. Important: Don't forget the trailing slash `/`<br/><br/><details><summary><b>Expand: how to use with 🐍 pip</b></summary>- `pip install -e stylish-tts/`   # Installs `stylish-tts` as a local editable package from the `stylish-tts/` directory, also automatically rebuilds it if its contents change. Important: Don't forget the trailing slash `/`</details>|
 
 
 # 3. Training Your Model
