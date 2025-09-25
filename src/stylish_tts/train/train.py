@@ -22,7 +22,7 @@ from stylish_tts.train.losses import (
     WavLMLoss,
     DurationLoss,
 )
-from stylish_tts.train.utils import get_data_path_list, save_git_diff
+from stylish_tts.train.utils import get_data_path_list, save_git_diff, torch_empty_cache
 from stylish_tts.train.loss_log import combine_logs
 from stylish_tts.train.convert_to_onnx import convert_to_onnx
 import tqdm
@@ -87,6 +87,12 @@ def train_model(
     random.seed(1)
 
     train_logger = logging.getLogger(__name__)
+
+    if stage == "alignment" and config.training.device == "mps":
+        logger.info(
+            f"Alignment training does not support mps device. Falling back on cpu training."
+        )
+        config.training.device = "cpu"
 
     train = TrainContext(stage, out_dir, config, model_config, train_logger)
 
@@ -160,7 +166,7 @@ def train_model(
         val_dataset,
         val_time_bins,
         validation=True,
-        num_workers=4,
+        num_workers=train.config.training.data_workers,
         device=train.config.training.device,
         multispeaker=train.model_config.multispeaker,
         stage=stage,
@@ -254,8 +260,7 @@ def train_model(
     while not done:
         train.logger.info(f"Training stage {train.manifest.stage}")
         train.manifest.best_loss = float("inf")  # best test loss
-        torch.cuda.synchronize()
-        torch.cuda.empty_cache()
+        torch_empty_cache(train.config.training.device)
         # save_checkpoint(train, prefix="checkpoint_test", long=False)
         # from models.stft import STFT
         # stft = STFT(

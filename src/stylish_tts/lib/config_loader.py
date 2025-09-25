@@ -27,6 +27,10 @@ class TrainingConfig(BaseModel):
         default=200,
         description="Reserve VRAM buffer during batch probing to avoid OOMs (in MiB).",
     )
+    data_workers: int = Field(
+        ...,
+        description="Number of workers used in the dataloader. Set as high as your CPU allows.",
+    )
 
 
 class TrainingStageConfig(BaseModel):
@@ -135,10 +139,6 @@ class LossWeightConfig(BaseModel):
     phase: float = Field(..., description="Weight for phase prediction loss.")
     multi_phase: float = Field(
         ..., description="Weight for multi-resolution phase loss."
-    )
-    phase_stability: float = Field(
-        ...,
-        description="Make sure magnitude of phase calculation is high enough for training to be numerically stable.",
     )
     confidence: float = Field(..., description="Weight for alignment confidence")
     align_loss: float = Field(..., description="Weight for alignment loss")

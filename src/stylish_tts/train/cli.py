@@ -1,6 +1,8 @@
 import os.path as osp
 import click
 import importlib.resources
+import multiprocessing
+import torch
 
 from stylish_tts.lib.config_loader import load_config_yaml, load_model_config_yaml
 import stylish_tts.train.config as config
@@ -47,7 +49,9 @@ def cli():
     Once you have pre-cached alignments and pitches, you can `train` your model, and finally `convert` your model to ONNX for inference.
 
     """
-    pass
+    # multiprocessing.set_start_method("forkserver")
+    # torch.multiprocessing.set_sharing_strategy("file_system")
+    # print("Setting multiprocessing start method to spawn.")
 
 
 ##### train-align #####
