@@ -192,10 +192,14 @@ def train_model(
         train.model[key].to(train.config.training.device)
 
     train.generator_loss = GeneratorLoss(
-        mrd=train.model.mrd,
+        mrd0=train.model.mrd0,
+        mrd1=train.model.mrd1,
+        mrd2=train.model.mrd2,
     ).to(train.config.training.device)
     train.discriminator_loss = DiscriminatorLoss(
-        mrd=train.model.mrd,
+        mrd0=train.model.mrd0,
+        mrd1=train.model.mrd1,
+        mrd2=train.model.mrd2,
     ).to(train.config.training.device)
     train.wavlm_loss = WavLMLoss(
         train.model_config.slm.model,
@@ -287,7 +291,9 @@ def train_model(
             save_git_diff(train.out_dir)
             # Copy normalization stats into the new stage directory
             try:
-                with open(osp.join(train.out_dir, "normalization.json"), "w", encoding="utf-8") as f:
+                with open(
+                    osp.join(train.out_dir, "normalization.json"), "w", encoding="utf-8"
+                ) as f:
                     json.dump(
                         {
                             "mel_log_mean": train.normalization.mel_log_mean,

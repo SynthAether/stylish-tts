@@ -52,7 +52,7 @@ def make_list(tensor: torch.Tensor) -> List[torch.Tensor]:
 
 
 def train_alignment(
-    batch, model, train, probing
+    batch, model, train, probing, disc_index
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     log = build_loss_log(train)
     mel, mel_length = calculate_mel(
@@ -130,7 +130,7 @@ stages["alignment"] = StageType(
 
 
 def train_acoustic(
-    batch, model, train, probing
+    batch, model, train, probing, disc_index
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         print_gpu_vram("init")
@@ -173,7 +173,10 @@ def train_acoustic(
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
+                target_list=target_fft,
+                pred_list=pred_fft,
+                used=["mrd"],
+                index=disc_index,
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -256,7 +259,7 @@ stages["acoustic"] = StageType(
     ],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=["mrd0", "mrd1", "mrd2"],
     inputs=[
         "text",
         "text_length",
@@ -270,7 +273,7 @@ stages["acoustic"] = StageType(
 
 
 def train_textual(
-    batch, model, train, probing
+    batch, model, train, probing, disc_index
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         mel, _ = calculate_mel(
@@ -306,7 +309,10 @@ def train_textual(
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
+                target_list=target_fft,
+                pred_list=pred_fft,
+                used=["mrd"],
+                index=disc_index,
             ).mean(),
         )
         train.magphase_loss(pred, batch.audio_gt, log)
@@ -372,7 +378,7 @@ stages["textual"] = StageType(
     ],
     eval_models=["speech_predictor"],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=["mrd0", "mrd1", "mrd2"],
     inputs=[
         "text",
         "text_length",
@@ -385,7 +391,9 @@ stages["textual"] = StageType(
 ##### Style #####
 
 
-def train_style(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.Tensor]]:
+def train_style(
+    batch, model, train, probing, disc_index
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         mel, _ = calculate_mel(
             batch.audio_gt,
@@ -489,7 +497,7 @@ stages["style"] = StageType(
 
 
 def train_duration(
-    batch, model, train, probing
+    batch, model, train, probing, disc_index
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     targets = train.duration_processor.align_to_class(batch.alignment)
     duration = model.duration_predictor(batch.text, batch.text_length)
@@ -586,7 +594,9 @@ stages["duration"] = StageType(
 ##### Joint #####
 
 
-def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.Tensor]]:
+def train_joint(
+    batch, model, train, probing, disc_index
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         print_gpu_vram("init")
         mel, _ = calculate_mel(
@@ -630,7 +640,10 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
+                target_list=target_fft,
+                pred_list=pred_fft,
+                used=["mrd"],
+                index=disc_index,
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -715,7 +728,7 @@ stages["joint"] = StageType(
         "speech_predictor",
     ],
     eval_models=["pe_mel_style_encoder"],
-    discriminators=["mrd"],
+    discriminators=["mrd0", "mrd1", "mrd2"],
     # discriminators=[],
     inputs=[
         "text",

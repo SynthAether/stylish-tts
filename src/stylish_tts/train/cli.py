@@ -302,9 +302,10 @@ def convert(config_path, model_config_path, duration, speech, checkpoint):
         model[key] = accelerator.prepare(model[key])
         model[key].to(config.training.device)
 
-    disc_loss = DiscriminatorLoss(mrd=model.mrd)
+    disc_loss = DiscriminatorLoss(mrd0=model.mrd0, mrd1=model.mrd1, mrd2=model.mrd2)
 
     from stylish_tts.train.train_context import NormalizationStats
+
     norm = NormalizationStats()
     accelerator.register_for_checkpointing(config)
     accelerator.register_for_checkpointing(model_config)
@@ -324,6 +325,7 @@ def convert(config_path, model_config_path, duration, speech, checkpoint):
     )
     # Embed normalization stats into ONNX metadata (only if present in checkpoint)
     from stylish_tts.train.convert_to_onnx import add_meta_data_onnx
+
     if norm.frames > 0:
         add_meta_data_onnx(speech, "mel_log_mean", str(norm.mel_log_mean))
         add_meta_data_onnx(speech, "mel_log_std", str(norm.mel_log_std))

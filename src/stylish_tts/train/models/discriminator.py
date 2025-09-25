@@ -97,3 +97,19 @@ class MultiResolutionDiscriminator(torch.nn.Module):
             fmap_gs.append(fmap_g)
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
+
+
+def run_discriminator_model(disc, target, pred):
+    y_d_rs = []
+    y_d_gs = []
+    fmap_rs = []
+    fmap_gs = []
+
+    y_d_r, fmap_r = disc(target)
+    y_d_g, fmap_g = disc(pred)
+    y_d_rs.append(y_d_r)
+    fmap_rs.append(fmap_r)
+    y_d_gs.append(y_d_g)
+    fmap_gs.append(fmap_g)
+
+    return y_d_rs, y_d_gs, fmap_rs, fmap_gs
