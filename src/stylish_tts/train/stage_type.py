@@ -6,7 +6,12 @@ from torch.nn.utils.rnn import pack_padded_sequence
 import torchaudio
 from einops import rearrange
 from stylish_tts.train.loss_log import LossLog, build_loss_log
-from stylish_tts.train.utils import print_gpu_vram, log_norm, length_to_mask
+from stylish_tts.train.utils import (
+    print_gpu_vram,
+    log_norm,
+    length_to_mask,
+    leaky_clamp,
+)
 from typing import List
 from stylish_tts.train.losses import multi_phase_loss
 
@@ -146,17 +151,36 @@ def train_acoustic(
                 train.normalization.mel_log_mean,
                 train.normalization.mel_log_std,
             ).squeeze(1)
-        pred = model.speech_predictor(
-            batch.text, batch.text_length, batch.alignment, batch.pitch, energy
-        )
+            norm_pitch = normalize_pitch(
+                batch.pitch, train.f0_log2_mean, train.f0_log2_std
+            )
+            voiced = (batch.pitch > 10).float()
         pe_text_encoding, _, _ = model.pe_text_encoder(batch.text, batch.text_length)
         pe_mel_style = model.pe_mel_style_encoder(mel.unsqueeze(1))
-        pred_pitch, pred_energy = model.pitch_energy_predictor(
+        pred_pitch, pred_energy, pred_voiced = model.pitch_energy_predictor(
             pe_text_encoding,
             batch.text_length,
             batch.alignment,
             pe_mel_style,
         )
+        if random.random() < 0.2 or probing:
+            pred = model.speech_predictor(
+                batch.text,
+                batch.text_length,
+                batch.alignment,
+                pred_pitch,
+                pred_energy,
+                pred_voiced,
+            )
+        else:
+            pred = model.speech_predictor(
+                batch.text,
+                batch.text_length,
+                batch.alignment,
+                norm_pitch,
+                energy,
+                voiced,
+            )
         print_gpu_vram("predicted")
         train.stage.optimizer.zero_grad()
 
@@ -190,7 +214,10 @@ def train_acoustic(
 
         log.add_loss(
             "pitch",
-            torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
+            torch.nn.functional.smooth_l1_loss(norm_pitch, pred_pitch),
+        )
+        log.add_loss(
+            "voiced", torch.nn.functional.binary_cross_entropy(pred_voiced, voiced)
         )
         log.add_loss(
             "energy",
@@ -219,13 +246,20 @@ def validate_acoustic(batch, train):
         train.normalization.mel_log_mean,
         train.normalization.mel_log_std,
     ).squeeze(1)
+    norm_pitch = normalize_pitch(batch.pitch, train.f0_log2_mean, train.f0_log2_std)
+    voiced = (batch.pitch > 10).float()
     pe_text_encoding, _, _ = train.model.pe_text_encoder(batch.text, batch.text_length)
     pe_mel_style = train.model.pe_mel_style_encoder(mel.unsqueeze(1))
-    pred_pitch, pred_energy = train.model.pitch_energy_predictor(
+    pred_pitch, pred_energy, pred_voiced = train.model.pitch_energy_predictor(
         pe_text_encoding, batch.text_length, batch.alignment, pe_mel_style
     )
     pred = train.model.speech_predictor(
-        batch.text, batch.text_length, batch.alignment, batch.pitch, energy
+        batch.text,
+        batch.text_length,
+        batch.alignment,
+        pred_pitch,
+        pred_energy,
+        pred_voiced,
     )
     log = build_loss_log(train)
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
@@ -238,7 +272,10 @@ def validate_acoustic(batch, train):
     )
     log.add_loss(
         "pitch",
-        torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
+        torch.nn.functional.smooth_l1_loss(norm_pitch, pred_pitch),
+    )
+    log.add_loss(
+        "voiced", torch.nn.functional.binary_cross_entropy(pred_voiced, voiced)
     )
     log.add_loss(
         "energy",
@@ -248,7 +285,7 @@ def validate_acoustic(batch, train):
 
 
 stages["acoustic"] = StageType(
-    next_stage="textual",
+    next_stage="style",
     train_fn=train_acoustic,
     validate_fn=validate_acoustic,
     train_models=[
@@ -760,3 +797,45 @@ def calculate_mel(audio, to_mel, mean, std):
         [audio.shape[0]], mel.shape[2], dtype=torch.long, device=audio.device
     )
     return mel, mel_length
+
+
+def normalize_pitch(f0, log_f0_mean, log_f0_std):
+    """
+    Normalizes f0 using pre-calculated log-scale z-score statistics.
+    """
+
+    voiced = f0 > 10
+
+    # Use torch or numpy log2 based on input type
+    log_f0 = torch.log2(f0 + 1e-8)
+
+    # Standardize using the calculated stats
+    normed_f0 = (log_f0 - log_f0_mean) / log_f0_std
+
+    # Set unvoiced parts to 0 (which now represents the mean of the normed space)
+    normed_f0 = normed_f0 * voiced
+    return normed_f0
+
+
+def denormalize_pitch(
+    normed_f0,
+    log_f0_mean,
+    log_f0_std,
+    min_hz=30,
+    max_hz=600,
+):
+    """
+    Denormalizes f0 from z-score + log-scale, WITH a safety clamp.
+    """
+    # De-standardize
+    log_f0 = normed_f0 * log_f0_std + log_f0_mean
+
+    # Convert back from log-scale
+    f0 = 2**log_f0
+    voiced = f0 > 10
+    f0 = leaky_clamp(f0, min_f=min_hz, max_f=max_hz, slope=0.01)
+
+    # Set unvoiced parts to 0
+    f0 = f0 * voiced
+
+    return f0

@@ -183,6 +183,16 @@ class TrainContext:
         except Exception:
             _tqdm = None
 
+        import torch
+
+        all_f0 = []
+        for f0 in self.batch_manager.dataset.pitch.values():
+            all_f0.append(f0[f0 > 10].flatten())
+        all_f0 = torch.cat(all_f0, 0)
+        all_f0 = torch.log2(all_f0 + 1e-9)
+        self.f0_log2_mean = all_f0.mean()
+        self.f0_log2_std = all_f0.std()
+
         # 1) Already from checkpoint
         if self.normalization is not None and self.normalization.frames > 0:
             out_path = osp.join(self.out_dir, "normalization.json")
