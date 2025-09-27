@@ -321,7 +321,7 @@ def validate_acoustic(batch, train):
 
 
 stages["acoustic"] = StageType(
-    next_stage="style",
+    next_stage="textual",
     train_fn=train_acoustic,
     validate_fn=validate_acoustic,
     train_models=[
@@ -464,7 +464,7 @@ def validate_style(batch, train):
 
     step.mel_loss()
     log.add_loss(
-        "style", torch.nn.functional.smooth_l1_loss(pe_text_style, pe_mel_style) * 10
+        "style", torch.nn.functional.smooth_l1_loss(step.pe_style, pe_mel_style) * 10
     )
     step.pitch_loss()
     step.voiced_loss()
