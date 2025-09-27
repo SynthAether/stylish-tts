@@ -95,10 +95,10 @@ loss_weight:
   # phase loss
   # -- if voice sounds autotuned, try increasing
   phase: 8
+  # Loss for predicting which parts of the segment are voiced/unvoiced
+  voiced: 1
   # multi-phase loss
   multi_phase: 8
-  # Loss to ensure that phase magnitude is high enough to provide numerical stability in training
-  phase_stability: 1
   # confidence for alignment (placeholder)
   confidence: 1
   # alignment loss
