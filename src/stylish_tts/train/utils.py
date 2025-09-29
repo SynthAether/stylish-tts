@@ -455,16 +455,10 @@ class DurationProcessor(torch.nn.Module):
         result = self.dur_to_class(result)
         return result
 
-    def prediction_to_duration(self, pred, text_length):
-        # softdur = self.class_to_dur_soft(torch.softmax(pred, dim=-1))
-        # softdur = softdur.sum(dim=-1).round().clamp(min=1)
-        # argmax = torch.argmax(pred, dim=-1).long()
-        # argdur = self.class_to_dur_hard(argmax)
+    def prediction_to_duration(self, pred):
         confidence = torch.softmax(pred, dim=-1)
         softdur = self.class_to_dur_soft(confidence)
         dur = softdur
-        # dur = (argdur * (argdur < 7)) + (softdur * (argdur >= 7))
-        # dur = dur[:text_length]
         return dur
 
     def duration_to_alignment(self, duration: torch.Tensor) -> torch.Tensor:
