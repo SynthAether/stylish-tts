@@ -474,7 +474,7 @@ class DurationProcessor(torch.nn.Module):
         result -- [t]ext length x [a]udio length"""
         indices = torch.repeat_interleave(
             torch.arange(duration.shape[0], device=duration.device),
-            duration.to(torch.int),
+            duration.round().to(torch.int),
         )
         result = torch.zeros(
             (duration.shape[0], indices.shape[0]), device=duration.device
