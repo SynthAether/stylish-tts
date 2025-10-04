@@ -523,8 +523,8 @@ def train_duration(
         )
     duration_loss /= duration.shape[0]
 
-    # duration_sums = duration.sum(dim=-1)
-    # duration_sum_target = torch.full_like(duration_sums, total_dur)
+    duration_sums = duration.sum(dim=-1)
+    duration_sum_target = torch.full_like(duration_sums, total_dur)
     # duration = duration * duration_sum_target.unsqueeze(1) / duration_sums.unsqueeze(1)
     # duration[:, 0] = duration[:, 0] + duration_sum_target - duration.sum(dim=-1)
     # alignment = calculate_alignment(duration)
