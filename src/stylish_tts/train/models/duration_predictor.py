@@ -35,7 +35,8 @@ class DurationPredictor(torch.nn.Module):
         )
         self.dropout = torch.nn.Dropout1d(duration_config.last_dropout)
         self.duration_proj = LinearNorm(inter_dim, duration_config.duration_classes)
-        self.std_proj = LinearNorm(inter_dim, 1)
+        # TODO: Remove this vestigial layer
+        self.coefficient_proj = LinearNorm(inter_dim, 5)
 
         cross_channels = inter_dim
         self.query_norm = AdaptiveLayerNorm(style_dim, cross_channels)
@@ -92,9 +93,7 @@ class DurationPredictor(torch.nn.Module):
         duration = torch.cat([duration[:, :, :1], rest], dim=2)
         duration = torch.cumsum(duration, dim=2)
         duration = -torch.abs(duration)
-        std = self.std_proj(prosody)
-        std = torch.abs(std) + 1e-9
-        return duration, std
+        return duration
 
 
 class ConvNeXtBlock(torch.nn.Module):

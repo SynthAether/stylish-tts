@@ -466,15 +466,48 @@ class DurationProcessor(torch.nn.Module):
 
         duration -- [t]ext length
         result -- [t]ext length x [a]udio length"""
-        indices = torch.repeat_interleave(
-            torch.arange(duration.shape[0], device=duration.device),
-            duration.to(torch.int),
+        total_dur = duration.sum(dim=1).round().max().long().item()
+
+        upper_bound = torch.cumsum(duration, dim=1)
+        lower_bound = upper_bound - duration
+        mean = (lower_bound + upper_bound) / 2
+        mean = mean.unsqueeze(2)
+
+        sequence = torch.arange(round(total_dur)).unsqueeze(0).unsqueeze(1)
+        sequence = sequence.to(duration.device)
+        x = sequence - mean
+        alignment = torch.zeros_like(x)
+
+        alignment = 1 - (x * 2 / (duration.unsqueeze(2) + 6)) ** 2
+        # for i in range(5):
+        #     power = i
+        #     coefficient = coefficient_list[:, i, :].unsqueeze(2)
+        #     # Coefficients are normalized for a domain of -1, 1.
+        #     # We need to scale them to a domain of -duration/2, duration/2
+        #     alignment = alignment + coefficient * (x * (2 / (duration.unsqueeze(2) + 6))) ** power
+
+        # duration = torch.nn.functional.pad(duration, (1, 1))
+        lower_bound -= 3
+        upper_bound += 3
+        mask = (sequence > lower_bound.unsqueeze(2)) * (
+            sequence < upper_bound.unsqueeze(2)
         )
-        result = torch.zeros(
-            (duration.shape[0], indices.shape[0]), device=duration.device
-        )
-        result[indices, torch.arange(indices.shape[0])] = 1
-        return result
+        alignment = alignment * mask
+        alignment = torch.clamp(alignment, min=0.0)
+
+        alignment = torch.softmax(alignment, dim=1)
+        return alignment
+
+    # def duration_to_alignment(self, duration: torch.Tensor) -> torch.Tensor:
+    #     indices = torch.repeat_interleave(
+    #         torch.arange(duration.shape[0], device=duration.device),
+    #         duration.to(torch.int),
+    #     )
+    #     result = torch.zeros(
+    #         (duration.shape[0], indices.shape[0]), device=duration.device
+    #     )
+    #     result[indices, torch.arange(indices.shape[0])] = 1
+    #     return result
 
     def forward(self, pred, text_length):
         duration = self.prediction_to_duration(pred, text_length)
