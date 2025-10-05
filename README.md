@@ -286,18 +286,18 @@ For the remainder:
    stylish-train train-align /path/to/your/config.yml --out /path/to/your/output
    ```
 
-    <details>
-    <summary>📘 <b>Expectations during alignment pre-training</b></summary>
+<details>
+<summary>📘 <b>Expectations during alignment pre-training</b></summary>
 
-    - Expectations during alignment pre-training:
-      - In this stage, a special adjustment is made to the training parameters at the end of each epoch.
-      - This adjustment means there will be a discontinuity in the training curve between epochs. This adjustment will eventually make the loss turn NEGATIVE. This is normal. If your training align_loss does not eventually turn negative, that is a sign that you likely need to train more.
-      - At each validation step, both an un-adjusted align_loss and a confidence score are generated. 
-        - align_loss should be going down.
-        - Confidence score should be going up.
-        - You want to pick a number of epochs so that these scores reach the knee in their curve. Do not keep training forever just because they are slowly improving. If you run into issues where things are not converging later, it is likely that you need to come back to this step and train a different amount to hit that "knee" in the loss curve.
-      - During alignment pre-training, we ALSO train on the validation set. This is usually a very, very bad thing in Machine Learning (ML). But in this case, the alignment model will never be used for aligning out-of-distribution segments. Doing this gives us a more representative sample for acoustic and textual training and does not have any other effects on overall training.
-    </details>
+- Expectations during alignment pre-training:
+  - In this stage, a special adjustment is made to the training parameters at the end of each epoch.
+  - This adjustment means there will be a discontinuity in the training curve between epochs. This adjustment will eventually make the loss turn NEGATIVE. This is normal. If your training align_loss does not eventually turn negative, that is a sign that you likely need to train more.
+  - At each validation step, both an un-adjusted align_loss and a confidence score are generated. 
+    - align_loss should be going down.
+    - Confidence score should be going up.
+    - You want to pick a number of epochs so that these scores reach the knee in their curve. Do not keep training forever just because they are slowly improving. If you run into issues where things are not converging later, it is likely that you need to come back to this step and train a different amount to hit that "knee" in the loss curve.
+  - During alignment pre-training, we ALSO train on the validation set. This is usually a very, very bad thing in Machine Learning (ML). But in this case, the alignment model will never be used for aligning out-of-distribution segments. Doing this gives us a more representative sample for acoustic and textual training and does not have any other effects on overall training.
+</details>
 
 - The `--out` option is where logs and checkpoints will end up.
 - Once the alignment stage completes, it will provide a trained model at the file specified in your `my_config.yml`.
@@ -317,17 +317,17 @@ For the remainder:
 - This generates the actual cached alignments for all the segments in both the training and validation data as configured in your config.yml. It outputs its results to the alignment file from your `my_config.yml`.
 
 
-    <details>
-    <summary>📘 <b>OPTIONAL: Culling Bad Alignments</b></summary>
+<details>
+<summary>📘 <b>OPTIONAL: Culling Bad Alignments</b></summary>
 
-    - OPTIONAL: Culling Bad Alignments
-      - Running `stylish-tts align` generates a "confidence value" score for every segment it processes. These scores are written to files in your dataset `path`.
-      - Confidence is not a guarantee of accuracy, because the model could be confidently wrong. But it is a safe bet that the segments that it is the least confident about either:
-        - Have a problem (perhaps the text doesn't match the audio) or
-        - Are just a bad fit for the model's heuristics.
-      - Culling the segments with the least confidence will make your model converge faster, though it also means it will use less training data overall.
-      - We have found that culling the 10% with the lowest confidence scores is a good balance.
-    </details>
+- OPTIONAL: Culling Bad Alignments
+  - Running `stylish-tts align` generates a "confidence value" score for every segment it processes. These scores are written to files in your dataset `path`.
+  - Confidence is not a guarantee of accuracy, because the model could be confidently wrong. But it is a safe bet that the segments that it is the least confident about either:
+    - Have a problem (perhaps the text doesn't match the audio) or
+    - Are just a bad fit for the model's heuristics.
+  - Culling the segments with the least confidence will make your model converge faster, though it also means it will use less training data overall.
+  - We have found that culling the 10% with the lowest confidence scores is a good balance.
+</details>
 
 - Note: All of the commands above (for Pitch and Alignment) should only need to be done ONCE per dataset, as long as the dataset does not change. Once they are done, their results are kept in your dataset directory. Now we begin ACTUALLY training.
 
