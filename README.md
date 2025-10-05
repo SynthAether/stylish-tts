@@ -358,46 +358,46 @@ For the remainder:
   - Stages advance automatically and a checkpoint is created at the end of every stage before moving to the next. Other checkpoints will be saved and validations will be periodically run based on your `my_config.yml` settings.
   - Each stage will have its own sub-directory of `out`, and its own training log and tensorboard graphs/samples.
 
-  <details>
-  <summary>📘 <b>Expectations for Acoustic training</b></summary>
+<details>
+<summary>📘 <b>Expectations for Acoustic training</b></summary>
 
 - Acoustic training is about training the fundamental acoustic speech prediction models which feed into the vocoder. We 'cheat' by feeding these models parameters derived directly from the audio segments. The pitch, energy, and alignments all come from our target audio. Pitch and energy are still being trained here, but they are not being used to generate predicted audio.
 - The main loss figure to look at is `mel` which is a perceptual similarity of the generated audio to the ground truth. It should slowly decrease during training, but the exact point at which it converges will depend on your dataset. The other loss figures can generally be ignored and may not vary much during training.
 - By the end of acoustic training, the samples should sound almost identical to ground-truth. These are probably going to be the best-sounding samples you listen to. But of course this is because it is doing the easiest version of the task.
 
-  </details>
+</details>
 
-  <details>
-  <summary>📘 <b>Expectations for Textual training</b></summary>
+<details>
+<summary>📘 <b>Expectations for Textual training</b></summary>
 
 - In textual training, the acoustic speech prediction is frozen while the focus of training becomes pitch and energy. An acoustic style model still 'cheats' by using audio to generate a prosodic style. This style along with the base text are what is used to calculate the pitch and energy values for each time location.
 - Here, `mel`, `pitch`, and `energy` losses are all important. You should expect mel loss to always be much higher in this stage than the acoustic stage. And it will only very gradually go down. Since there are three losses here, keeping an eye on total loss is more useful. It will be a lot less stable than in acoustic, but there is still a clear trend downwards.
 - As training goes on, the voice should sound less strained, less 'warbly', and more natural. Make sure you are listening for the tone of the sound and how loud it is rather than strict prosody because the samples are still using the ground truth alignment.
 
-  </details>
+</details>
 
-  <details>
-  <summary>📘 <b>Expectations for Style training</b></summary>
+<details>
+<summary>📘 <b>Expectations for Style training</b></summary>
 
 - Here the only 'cheating' we do is to use the ground-truth alignment. The predicted pitch and energy are used to directly predict the audio. A textual style encoder is trained to produce the same outputs as the acoustic model from the previous stage.
 - Aside from that, the training regimen should look a lot like the previous stage. `mel`, `pitch`, and `energy` should all trend downward but expect `mel` to be higher than the previous stage.
 
-  </details>
+</details>
 
-  <details>
-  <summary>📘 <b>Expectations for Duration training</b></summary>
+<details>
+<summary>📘 <b>Expectations for Duration training</b></summary>
 
 - The final stage of training removes our last 'cheat' and trains the duration predictor to try to replicate the prosody of the original. The other models are frozen. All samples use only values predicted from the text.
 - The `duration` and `duration_ce` losses should both slowly go down. The main danger here is overfitting. So if you see validation loss stagnate or start going up you should stop training even if training loss is still going down. It is expected that one of the losses might plateau before the other.
 - When you listen to samples, you will get the same version you'd expect to hear during inference. Listen to make sure the voice as a whole is not going to fast or slow or just going past punctuation without pausing. You should no longer expect it to mirror the ground truth exactly, but it should have generalized to the point where it is a plausible and expressive reading. As training proceeds, it should sound more and more like fluent prosody. If there are still pitch or energy issues like warbles or loudness or tone, then those won't be fixed in this stage and you may need to train more in Textual or Acoustic before trying Duration training.
 
-  </details>
+</details>
 
 
 ### 3.5 (Optional) Loading a Checkpoint
 
-  <details>
-  <summary>📘 <b>What is a Checkpoint?</b></summary>
+<details>
+<summary>📘 <b>What is a Checkpoint?</b></summary>
 
   What is a Checkpoint?
   - A checkpoint is a disk snapshot of training progress.
@@ -407,7 +407,7 @@ For the remainder:
     - Training metadata (current epoch, step count, etc.)
   - You can use the checkpoint to resume in case training is interrupted.
   - After training is complete, you will use the checkpoint to generate the ONNX model for inference.
-  </details>
+</details>
 
 - You can load a checkpoint from any stage via the `--checkpoint` argument.
 - You still need to set `--stage` appropriately to one of "alignment|acoustic|textual|duration".
