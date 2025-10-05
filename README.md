@@ -48,6 +48,7 @@ You will need to install `k2` during the installation process. This is a bit tri
 - Installing `k2` requires you to find the correct wheel from their installation page to install. Refer to thair [installation instructions](https://k2-fsa.github.io/k2/installation/index.html)
 - `k2` includes PyTorch version, Python version, CUDA version (for non-CPU installs), and OS as part of their URL. Make sure you pick the right one.
 - Use the proper wheel URL below where you see `<K2_URL>`
+- Make sure your `<K2_URL>` is not itself escaped (you should see a '+' in it instead of '%2B').
 - If you are using a non-cuda GPU, install the CPU variant of `k2` and during alignment training (the only place using k2), it will automatically fall back on the CPU device. Alignment training is reasonably fast even on CPU.
 - If you run into issues after installing, try removing `k2`, verifying that all the various versions are expected, then re-installing using the correct wheel.
 
@@ -253,32 +254,40 @@ For the remainder:
   - The plaintext is the original text transcript of your utterance before phonemization. It does not need to be tokenized or normalized, but obviously should not include the '|' character, which is to be used as the separator.
 
 
-### 3.3 Generating Pitch and Alignment Data
+### 3.3 Generating Pitch Data
 
-- Pitch Data
-  - Stylish TTS uses a pre-cached ground truth pitch (F0) for all your segments. To generate these pitches, run:
-    ```
-    uv run stylish-train pitch /path/to/your/config.yml --workers 16
-    ```
-  - The number of workers should be approximately equal to the number of cores on your machine. By default, Harvest, which is a CPU-based system, is used to extract pitch. If you find this to be too slow, there is also a GPU-based option available by passing `--method rmvpe` from the command line. When finished, it will write the pre-cached segment pitches at the `pitch_path` file path specified by your `my_config.yml`.
+- Stylish TTS uses a pre-cached ground truth pitch (F0) for all your segments. To generate these pitches, run:
+
+   **uv:**
+   ```
+   uv run stylish-train pitch /path/to/your/config.yml --workers 16
+   ```
+   **pip:**
+   ```
+   stylish-train pitch /path/to/your/config.yml --workers 16
+   ```
 
 
-- Alignment Data
-  - Alignment data is also pre-cached, and in order to generate the pre-cached data, you will need to train an alignment model first. This is a multi-step process, but only needs to be done ONCE for your dataset, after which you can just use the cached results (similar to the generated pitch data).
-  - First, you run train.py using the special alignment stage. For a description of the other parameters, see below.
-    ```
-    uv run stylish-train train-align /path/to/your/config.yml --out /path/to/your/output
-    ```
-    - The `--out` option is where logs and checkpoints will end up. Once the alignment stage completes, it will provide a trained model at the file specified in your `my_config.yml`. It is important to realize that this is a MODEL, not the alignments themselves. We will use this model to generate the alignments.
+- The number of workers should be approximately equal to the number of cores on your machine.
+- By default, Harvest, which is a CPU-based system, is used to extract pitch. If you find this to be too slow, there is also a GPU-based option available by passing `--method rmvpe` from the command line. When finished, it will write the pre-cached segment pitches at the `pitch_path` file path specified by your `my_config.yml`.
 
-    ```
-    uv run stylish-train align /path/to/your/config.yml
-    ```
-    - This generates the actual cached alignments for all the segments for both training and validation data as configured in your config.yml. You should now add the resulting alignment.safetensors path to your `my_config.yml`.
 
+### 3.3 Generating Alignment Data
+
+- Alignment data is also pre-cached. This is a multi-step process, but only needs to be done ONCE for your dataset, after which you can just use the cached results (similar to the generated pitch data).
+- First, you need to train your own alignment model:
+
+   **uv:**
+   ```
+   uv run stylish-train train-align /path/to/your/config.yml --out /path/to/your/output
+   ```
+   **pip:**
+   ```
+   stylish-train train-align /path/to/your/config.yml --out /path/to/your/output
+   ```
 
     <details>
-    <summary>(Expand to read) Expectations during alignment pre-training</summary>
+    <summary>📘 <b>Expectations during alignment pre-training</b></summary>
 
     - Expectations during alignment pre-training:
       - In this stage, a special adjustment is made to the training parameters at the end of each epoch.
@@ -286,20 +295,38 @@ For the remainder:
       - At each validation step, both an un-adjusted align_loss and a confidence score are generated. 
         - align_loss should be going down.
         - Confidence score should be going up.
-        - You want to pick a number of epochs so that these scores reach the knee in their curve. Do not keep training forever just because they are slowly going down. If you run into issues where things are not converging later, it is likely that you need to come back to this step and train a different amount to hit that "knee" in the loss curve.
+        - You want to pick a number of epochs so that these scores reach the knee in their curve. Do not keep training forever just because they are slowly improving. If you run into issues where things are not converging later, it is likely that you need to come back to this step and train a different amount to hit that "knee" in the loss curve.
       - During alignment pre-training, we ALSO train on the validation set. This is usually a very, very bad thing in Machine Learning (ML). But in this case, the alignment model will never be used for aligning out-of-distribution segments. Doing this gives us a more representative sample for acoustic and textual training and does not have any other effects on overall training.
     </details>
 
+- The `--out` option is where logs and checkpoints will end up.
+- Once the alignment stage completes, it will provide a trained model at the file specified in your `my_config.yml`.
+- This is a MODEL, not the alignments themselves.
+
+- We will use this model to generate the alignments:
+
+   **uv:**
+   ```
+   uv run stylish-train align /path/to/your/config.yml
+   ```
+   **pip:**
+   ```
+   stylish-train align /path/to/your/config.yml
+   ```
+
+- This generates the actual cached alignments for all the segments in both the training and validation data as configured in your config.yml. It outputs its results to the alignment file from your `my_config.yml`.
+
+
     <details>
-    <summary>(Expand to read) OPTIONAL: Culling Bad Alignments</summary>
+    <summary>📘 <b>OPTIONAL: Culling Bad Alignments</b></summary>
 
     - OPTIONAL: Culling Bad Alignments
       - Running `stylish-tts align` generates a "confidence value" score for every segment it processes. These scores are written to files in your dataset `path`.
       - Confidence is not a guarantee of accuracy, because the model could be confidently wrong. But it is a safe bet that the segments that it is the least confident about either:
-        - have a problem (perhaps the text doesn't match the audio) or
-        - are just a bad fit for the model's heuristics.
-      - Culling the segments with the least confidence will make your model converge faster, though it also means it will "see" less training data.
-      - Anecdotally, we have found that culling the 10% with the lowest confidence scores is a good balance.
+        - Have a problem (perhaps the text doesn't match the audio) or
+        - Are just a bad fit for the model's heuristics.
+      - Culling the segments with the least confidence will make your model converge faster, though it also means it will use less training data overall.
+      - We have found that culling the 10% with the lowest confidence scores is a good balance.
     </details>
 
 - Note: All of the commands above (for Pitch and Alignment) should only need to be done ONCE per dataset, as long as the dataset does not change. Once they are done, their results are kept in your dataset directory. Now we begin ACTUALLY training.
@@ -307,17 +334,24 @@ For the remainder:
 
 ### 3.4 Starting a Training Run
 
-- Here is a typical command to start off a new training run using a single machine:
-  ```
-  uv run stylish-train train /path/to/your/config.yml --out /path/to/your/output
-  ```
-  --out: This is the destination path for all checkpoints, training logs, and tensorboard data. A separate sub-directory is created for each stage of training. Make sure to have plenty of disk space available here as checkpoints can take a large amount of storage.
+- Here is a typical command to start off a new training run:
+
+   **uv:**
+   ```
+   uv run stylish-train train /path/to/your/config.yml --out /path/to/your/output
+   ```
+   **pip:**
+   ```
+   stylish-train train /path/to/your/config.yml --out /path/to/your/output
+   ```
+
+- All checkpoint, training logs, and tensorboard data are sent to the path you specify with `--out`.
+- Make sure to have plenty of disk space available here as checkpoints can take a large amount of storage.
 
 - Expectations During Training
   - It will take a LONG time to run this script. So, it is a good idea to run using `screen` or `tmux` to have a persistent shell that won't disappear if you get disconnected or close the window.
   - Training happens over the course of four stages:
     - The four main stages of training are `acoustic`, `textual`, `style`, and `duration`. 
-    - Each stage has its own logs and tensorboard data in a separate subdirectory of the `out_dir`.
     - When you begin training, it will start with the `acoustic` stage by default.
     - As each stage ends, the next will automatically begin.
     - You can specify a stage with the `--stage` option, which is necessary if you are resuming from a checkpoint.
@@ -325,27 +359,37 @@ For the remainder:
   - Each stage will have its own sub-directory of `out`, and its own training log and tensorboard graphs/samples.
 
   <details>
-  <summary>(Expand to read) Expectations During Each of the 4 Training Phases</summary>
+  <summary>📘 <b>Expectations for Acoustic training</b></summary>
 
-    Expectations During Each of the 4 Training Phases:
-    - Stage 1: Acoustic training
-      - Acoustic training is about training the fundamental acoustic speech prediction models which feed into the vocoder. We 'cheat' by feeding these models parameters derived directly from the audio segments. The pitch, energy, and alignments all come from our target audio. Pitch and energy are still being trained here, but they are not being used to generate predicted audio.
-      - The main loss figure to look at is `mel` which is a perceptual similarity of the generated audio to the ground truth. It should slowly decrease during training, but the exact point at which it converges will depend on your dataset. The other loss figures can generally be ignored and may not vary much during training.
-      - By the end of acoustic training, the samples should sound almost identical to ground-truth. These are probably going to be the best-sounding samples you listen to. But of course this is because it is doing the easiest version of the task.
+- Acoustic training is about training the fundamental acoustic speech prediction models which feed into the vocoder. We 'cheat' by feeding these models parameters derived directly from the audio segments. The pitch, energy, and alignments all come from our target audio. Pitch and energy are still being trained here, but they are not being used to generate predicted audio.
+- The main loss figure to look at is `mel` which is a perceptual similarity of the generated audio to the ground truth. It should slowly decrease during training, but the exact point at which it converges will depend on your dataset. The other loss figures can generally be ignored and may not vary much during training.
+- By the end of acoustic training, the samples should sound almost identical to ground-truth. These are probably going to be the best-sounding samples you listen to. But of course this is because it is doing the easiest version of the task.
 
-    - Stage 2: Textual training
-      - In textual training, the acoustic speech prediction is frozen while the focus of training becomes pitch and energy. An acoustic style model still 'cheats' by using audio to generate a prosodic style. This style along with the base text are what is used to calculate the pitch and energy values for each time location.
-      - Here, `mel`, `pitch`, and `energy` losses are all important. You should expect mel loss to always be much higher in this stage than the acoustic stage. And it will only very gradually go down. Since there are three losses here, keeping an eye on total loss is more useful. It will be a lot less stable than in acoustic, but there is still a clear trend downwards.
-      - As training goes on, the voice should sound less strained, less 'warbly', and more natural. Make sure you are listening for the tone of the sound and how loud it is rather than strict prosody because the samples are still using the ground truth alignment.
+  </details>
 
-    - Stage 3: Style training
-      - Here the only 'cheating' we do is to use the ground-truth alignment. The predicted pitch and energy are used to directly predict the audio. A textual style encoder is trained to produce the same outputs as the acoustic model from the previous stage.
-      - Aside from that, the training regimen should look a lot like the previous stage. `mel`, `pitch`, and `energy` should all trend downward but expect `mel` to be higher than the previous stage.
+  <details>
+  <summary>📘 <b>Expectations for Textual training</b></summary>
 
-    - Stage 4: Duration training
-      - The final stage of training removes our last 'cheat' and trains the duration predictor to try to replicate the prosody of the original. The other models are frozen. All samples use only values predicted from the text.
-      - The `duration` and `duration_ce` losses should both slowly go down. The main danger here is overfitting. So if you see validation loss stagnate or start going up you should stop training even if training loss is still going down. It is expected that one of the losses might plateau before the other.
-      - When you listen to samples, you will get the same version you'd expect to hear during inference. Listen to make sure the voice as a whole is not going to fast or slow or just going past punctuation without pausing. You should no longer expect it to mirror the ground truth exactly, but it should have generalized to the point where it is a plausible and expressive reading. As training proceeds, it should sound more and more like fluent prosody. If there are still pitch or energy issues like warbles or loudness or tone, then those won't be fixed in this stage and you may need to train more in Textual or Acoustic before trying Duration training.
+- In textual training, the acoustic speech prediction is frozen while the focus of training becomes pitch and energy. An acoustic style model still 'cheats' by using audio to generate a prosodic style. This style along with the base text are what is used to calculate the pitch and energy values for each time location.
+- Here, `mel`, `pitch`, and `energy` losses are all important. You should expect mel loss to always be much higher in this stage than the acoustic stage. And it will only very gradually go down. Since there are three losses here, keeping an eye on total loss is more useful. It will be a lot less stable than in acoustic, but there is still a clear trend downwards.
+- As training goes on, the voice should sound less strained, less 'warbly', and more natural. Make sure you are listening for the tone of the sound and how loud it is rather than strict prosody because the samples are still using the ground truth alignment.
+
+  </details>
+
+  <details>
+  <summary>📘 <b>Expectations for Style training</b></summary>
+
+- Here the only 'cheating' we do is to use the ground-truth alignment. The predicted pitch and energy are used to directly predict the audio. A textual style encoder is trained to produce the same outputs as the acoustic model from the previous stage.
+- Aside from that, the training regimen should look a lot like the previous stage. `mel`, `pitch`, and `energy` should all trend downward but expect `mel` to be higher than the previous stage.
+
+  </details>
+
+  <details>
+  <summary>📘 <b>Expectations for Duration training</b></summary>
+
+- The final stage of training removes our last 'cheat' and trains the duration predictor to try to replicate the prosody of the original. The other models are frozen. All samples use only values predicted from the text.
+- The `duration` and `duration_ce` losses should both slowly go down. The main danger here is overfitting. So if you see validation loss stagnate or start going up you should stop training even if training loss is still going down. It is expected that one of the losses might plateau before the other.
+- When you listen to samples, you will get the same version you'd expect to hear during inference. Listen to make sure the voice as a whole is not going to fast or slow or just going past punctuation without pausing. You should no longer expect it to mirror the ground truth exactly, but it should have generalized to the point where it is a plausible and expressive reading. As training proceeds, it should sound more and more like fluent prosody. If there are still pitch or energy issues like warbles or loudness or tone, then those won't be fixed in this stage and you may need to train more in Textual or Acoustic before trying Duration training.
 
   </details>
 
@@ -353,25 +397,16 @@ For the remainder:
 ### 3.5 (Optional) Loading a Checkpoint
 
   <details>
-  <summary>(Expand to read) What is a Checkpoint?</summary>
+  <summary>📘 <b>What is a Checkpoint?</b></summary>
 
   What is a Checkpoint?
-  - A checkpoint is a snapshot of a model's state during training that can be used to resume training or for inference.
-  - It is essentially a save file that captures the model at a specific point in time.
-  - Checkpoints are training-centric and framework-specific.
-  - A checkpoint typically contains:
-    - Model weights/parameters - the learned values from training
-    - Optimizer state - momentum, learning rate schedules, etc.
-    - Training metadata - current epoch, step count, loss values
-    - Model architecture info - though sometimes stored separately
-    - Random number generator states - for reproducible training resumption
-
-  - Checkpoints serve multiple purposes:
-    - Recovery: Resume training if interrupted
-    - Experimentation: Compare models at different training stages
-    - Deployment: Use a trained model for inference
-    - Fine-tuning: Start from a pre-trained state for additional training
-  - ---
+  - A checkpoint is a disk snapshot of training progress.
+  - Our checkpoints contain:
+    - Model weights for all models
+    - Optimizer state
+    - Training metadata (current epoch, step count, etc.)
+  - You can use the checkpoint to resume in case training is interrupted.
+  - After training is complete, you will use the checkpoint to generate the ONNX model for inference.
   </details>
 
 - You can load a checkpoint from any stage via the `--checkpoint` argument.
@@ -379,38 +414,37 @@ For the remainder:
   - If you set it to the same stage as the checkpoint loaded from, it will continue in that stage at the same step number and epoch.
   - If it is a different stage, it will train the entire stage.
 - To load a checkpoint:
-  ```
-  uv run stylish-train train /path/to/your/config.yml --stage <stage> --out /path/to/your/output --checkpoint /path/to/your/checkpoint
-  ```
+
+   **uv:**
+    ```
+    uv run stylish-train train /path/to/your/config.yml --stage <stage> --out /path/to/your/output --checkpoint /path/to/your/checkpoint
+    ```
+   **pip:**
+    ```
+    stylish-train train /path/to/your/config.yml --stage <stage> --out /path/to/your/output --checkpoint /path/to/your/checkpoint
+    ```
+
 - Please note that Stylish TTS checkpoints are NOT compatible with StyleTTS 2 checkpoints.
 
 
 ### 3.6 Exporting to ONNX (for deployment and inference)
 
-  <details>
-  <summary>(Expand to read) What is an ONNX file?</summary>
-
-What is an ONNX file?
 - ONNX (Open Neural Network Exchange) is an open standard format for representing machine learning models.
-- ONNX files are primarily used for deployment and inference rather than training. They're optimized for running the model efficiently in production environments and enable interoperability between different ML ecosystems.
-- ONNX files are deployment-centric and framework-agnostic. An ONNX file contains a serialized neural network that can be moved between different ML frameworks like PyTorch, TensorFlow, or specialized inference engines.
-- In the context of LLMs specifically, an ONNX file would contain:
-  - The complete model architecture (layers, connections, operations)
-  - All trained weights and parameters
-  - Input/output specifications
-  - Metadata about the model
-- ---
-  </details>
-
-- Now, we will export two ONNX files, which will be used for deployment and inference.
+- Only the models actually needed during inference are exported.
+- They provide a self-contained standalone version of the model optimized for inference.
 - This command will export two ONNX files, one for predicting duration and the other for predicting speech.
 
-  ```sh
-  uv run stylish-train convert /path/to/your/config.yml --duration /path/to/your/duration.onnx --speech /path/to/your/speech.onnx --checkpoint /path/to/your/checkpoint
-  ```
+   **uv:**
+   ```
+   uv run stylish-train convert /path/to/your/config.yml --duration /path/to/your/duration.onnx --speech /path/to/your/speech.onnx --checkpoint /path/to/your/checkpoint
+   ```
+   **pip:**
+   ```
+   stylish-train convert /path/to/your/config.yml --duration /path/to/your/duration.onnx --speech /path/to/your/speech.onnx --checkpoint /path/to/your/checkpoint
+   ```
 
 - Using the ONNX model for Inference:
-  ```sh
+  ```
   uv run stylish-tts/train/test_onnx.py --duration /path/to/your/output/duration.onnx --speech /path/to/your/output/speech.onnx \
       --text "ðˈiːz wˈɜː tˈuː hˈæv ˈæn ɪnˈɔːɹməs ˈɪmpækt , nˈɑːt ˈoʊnliː bɪkˈɔz ðˈeɪ wˈɜː əsˈoʊsiːˌeɪtᵻd wˈɪð kˈɑːnstəntˌiːn ," \
       --text "bˈʌt ˈɔlsoʊ bɪkˈɔz , ˈæz ɪn sˈoʊ mˈɛniː ˈʌðɚ ˈɛɹiːəz , ðə dɪsˈɪʒənz tˈeɪkən bˈaɪ kˈɑːnstəntˌiːn ( ˈɔːɹ ɪn hˈɪz nˈeɪm ) wˈɜː tˈuː hˈæv ɡɹˈeɪt səɡnˈɪfɪkəns fˈɔːɹ sˈɛntʃɚiːz tˈuː kˈʌm ." \
@@ -526,7 +560,9 @@ Pending tasks:
   - Attention code from Conformer implementation by Lucidrains [Code](https://github.com/lucidrains/conformer/blob/fc70d518d3770788d17a5d9799e08d23ad19c525/conformer/conformer.py#L66)
 
 - Duration prediction
-  - Ordinal regression loss: "Class Distance Weighted Cross-Entropy Loss for Ulcerative Colitis Severity Estimation" by Gorkem Polat, Ilkay Ergenc, Haluk Tarik Kani, Yesim Ozen Alahdab, Ozlen Atug, Alptekin Temizel [Paper](https://arxiv.org/abs/2202.05167)
+  <!-- - Ordinal regression loss: "Class Distance Weighted Cross-Entropy Loss for Ulcerative Colitis Severity Estimation" by Gorkem Polat, Ilkay Ergenc, Haluk Tarik Kani, Yesim Ozen Alahdab, Ozlen Atug, Alptekin Temizel [Paper](https://arxiv.org/abs/2202.05167)
+  -->
+  - "Conformal Prediction Sets for Ordinal Classification" by Prasenjit Dey, Srujana Merugu, Sivaramakrishnan (Siva) Kaveri [Paper](https://www.amazon.science/publications/conformal-prediction-sets-for-ordinal-classification)
 
 - ONNX Compatibility
   - Kokoro [Code](https://github.com/hexgrad/kokoro)
