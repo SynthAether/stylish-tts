@@ -513,7 +513,9 @@ def train_duration(
     targets = train.duration_processor.dur_to_class(target_dur)
     duration_raw = model.duration_predictor(batch.text, batch.text_length)
     total_dur = batch.pitch.shape[-1]
-    duration = train.duration_processor.prediction_to_duration(duration_raw)
+    duration = train.duration_processor.prediction_to_duration(
+        duration_raw, batch.text_length
+    )
 
     train.stage.optimizer.zero_grad()
     duration_loss = 0
@@ -547,7 +549,7 @@ def train_duration(
 
     log.add_loss("duration_ce", loss_ce)
     log.add_loss("duration", duration_loss)  # loss_cdw)
-    log.add_loss("dilation", F.smooth_l1_loss(duration_sums, duration_sum_target))
+    # log.add_loss("dilation", F.smooth_l1_loss(duration_sums, duration_sum_target))
     train.accelerator.backward(log.backwards_loss())
 
     return log.detach(), None, None
@@ -572,7 +574,9 @@ def validate_duration(batch, train):
     targets = train.duration_processor.dur_to_class(target_dur)
     duration_raw = train.model.duration_predictor(batch.text, batch.text_length)
     total_dur = target_dur.sum(-1).max()
-    duration = train.duration_processor.prediction_to_duration(duration_raw)
+    duration = train.duration_processor.prediction_to_duration(
+        duration_raw, batch.text_length
+    )
 
     pe_text_encoding, _, _ = train.model.pe_text_encoder(batch.text, batch.text_length)
     # pe_text_style = train.model.pe_text_style_encoder(

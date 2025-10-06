@@ -6,7 +6,7 @@ from .common import LinearNorm
 from .text_encoder import TextEncoder
 from .text_style_encoder import TextStyleEncoder
 from .ada_norm import AdaptiveLayerNorm
-from ..utils import sequence_mask
+from ..utils import sequence_mask, length_to_mask
 from torch.nn.utils.parametrizations import weight_norm
 from .text_encoder import MultiHeadAttention
 
@@ -93,6 +93,7 @@ class DurationPredictor(torch.nn.Module):
         duration = torch.cat([duration[:, :, :1], rest], dim=2)
         duration = torch.cumsum(duration, dim=2)
         duration = -torch.abs(duration)
+        duration = duration * mask.transpose(1, 2)
         return duration
 
 
