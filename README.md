@@ -60,9 +60,8 @@ You will need to install `k2` during the installation process. This is a bit tri
 mkdir my-training-dir
 cd my-training-dir
 
-uv init
 # stylish-tts currently uses Python 3.12
-uv python install 3.12 --preview --default
+uv init --python 3.12
 
 # Install pytorch and onnx.
 # Use onnxruntime-gpu if you want to do test inference with a GPU.
@@ -75,7 +74,7 @@ uv add "k2 @ <K2_URL>"
 uv sync
 
 # Verify that k2 was installed successfully
-python -c "import k2; print('k2 installed successfully')"
+uv run python -c "import k2; print('k2 installed successfully')"
 
 # Clone the stylish-tts source somewhere (TODO: Fix this when we upload a package)
 git clone https://github.com/Stylish-TTS/stylish-tts.git
@@ -92,16 +91,19 @@ uv add --editable stylish-tts/
 
 ```
 # stylish-tts currently uses Python 3.12
-pyenv install 3.12.7 && pyenv local 3.12.7
+# Use pyenv or equivalent to ensure the venv uses Python 3.12
+# pyenv install 3.12.7 && pyenv local 3.12.7
+
+# Ensure pip is installed via your package manager
 
 # Create a folder for your uv project
 mkdir my-training-dir
 cd my-training-dir
 
 # Set up virtual environment
-python -m venv venv_py312
+python3.12 -m venv venv
 # Activate virtual environment (needs to be done every time you begin a new session)
-source venv_py312/bin/activate
+source venv/bin/activate
 
 # Install pytorch and onnx.
 # Use onnxruntime-gpu if you want to do test inference with a GPU.
@@ -156,17 +158,13 @@ In order to train your model, you will need:
 - A [Dataset](#32-preparing-your-dataset) for your model with at least 25 hours of text/audio pairs
 	- You will be training a base model from scratch. So just a few minutes of data is not enough.
 
-### 3.1 Creating your config.yml file
+## 3.1 Create your config.yml file
 - You will need your own `config.yml` file (say `my_config.yml`) created from the template [here](https://github.com/Stylish-TTS/stylish-tts/blob/main/config/config.yml). You can store it anywhere, like at the root of your project.
 
-The `training` section provides overall training parameters.
-- How often to log training data, how often to save a checkpoint, and how often to run a validation to see how the model is doing can all be set to your personal preference of impatience vs. overhead. `log_interval`, `save_interval`, and `val_interval` are all in steps.
-- You will need to specify the `device` ("cuda", "mps", "cpu" or whatever will work with your torch installation).
-- `vram_reserve` allocates an extra block of memory when probing how big batch sizes can be. It reduces the odds of having out-of-memory events.
-- `data_workers` sets how many processes will be used to prepare data for training. If your GPU is under-utilized and you have spare CPU cores, you can set this higher to go faster.
 
-For example:
-  ```
+### Training Configuration
+
+```
 	training:
 	  log_interval: 1000
 	  save_interval: 5000
@@ -175,23 +173,52 @@ For example:
 	  mixed_precision: "no"
 	  vram_reserve: 200
 	  data_workers: 32
-  ```
+```
+
+- How often to log training data, how often to save a checkpoint, and how often to run a validation to see how the model is doing can all be set to your personal preference of impatience vs. overhead. `log_interval`, `save_interval`, and `val_interval` are all in steps.
+- You will need to specify the `device` ("cuda", "mps", "cpu" or whatever will work with your torch installation).
+- `vram_reserve` allocates an extra block of memory when probing how big batch sizes can be. It reduces the odds of having out-of-memory events.
+- `data_workers` sets how many processes will be used to prepare data for training. If your GPU is under-utilized and you have spare CPU cores, you can set this higher to go faster.
+  - **Note:** For Mac users, set `data_workers` to 0 for now. There is a known issue with dataloader concurrency that we are looking into.
+
+### Training Plan Configuration
+
+```
+training_plan:
+  alignment:
+    epochs: 20
+    probe_batch_max: 128
+    lr: 1e-5
+  acoustic:
+    epochs: 10
+    probe_batch_max: 16
+    lr: 1e-4
+  textual:
+    epochs: 10
+    probe_batch_max: 16
+    lr: 3e-5
+  style:
+    epochs: 50
+    probe_batch_max: 128
+    lr: 1e-5
+  duration:
+    epochs: 50
+    probe_batch_max: 128
+    lr: 1e-4
+```
 
 The `training_plan` section provides parameters for each stage of training. With more testing we'll provide concrete guidelines for each of this.
 - Generally, leave the learning rate (`lr`) alone as this has been tuned.
-- If you have a small dataset, you will want to increase the number of `epochs`. TODO: Guidance
-- If you have a GPU with a lot of VRAM, you will want to have higher `probe_batch_max`. TDODO: Guidance
+- If you have a small dataset, you will want to increase the number of `epochs`.
+  - `acoustic` and `textual` stages are SLOW. The other stages are FAST.
+  - Generally you want the same number of epochs for `acoustic` and `textual`.
+  - The number above assume a 100-hour dataset. Make them proportionally larger for smaller datasets.
+- If you have a GPU with a lot of VRAM, you will want to have higher `probe_batch_max`. TODO: Guidance
 - If you are training using a CPU or are using an architecture with unified memory (like Mac), set `probe_max_batch` to 2 for every stage. The batch probing works by pushing until it runs out of memory. That will make you sad if this is system memory instead of VRAM memory.
 
-For the remainder:
-- The `dataset` section is described later.
-- The `validation` section allows you to adjust which samples are exported to tensorflow.
-- The `loss_weight` section provides relative weights for different kinds of loss. These are tuned and should not be changed unless you know what you are doing.
+### Dataset Configuration
 
-### 3.2 Preparing Your Dataset
-
-- Note: A sample dataset can be found at [sample_dataset/](sample_dataset/). Please note that this has been provided as a reference only, and will in no way be sufficient to train a model.
-- You will also need to fill in the `dataset` section of your `my_config.yml` file, as shown below. The `path` should be the root of your dataset, and the various other paths in this section are relative to that root. If you use the default file and directory names, your directory structure will look something like this:
+- The `path` should be the root of your dataset, and the various other paths in this section are relative to that root. If you use the default file and directory names, your directory structure will look something like this:
   ```
   dataset:
     # All paths in this section are relative to the main path
@@ -204,9 +231,9 @@ For the remainder:
     alignment_model_path: "alignment_model.safetensors"
   ```
 
-- The structure of your dataset folder might look something like this:
+- The structure of your dataset folder from this example would look like this:
   ```
-  path/to/your/dataset/             # Root
+  ../my_dataset/             # Root
   |
   +-> training-list.txt             # Training list file (described below)
   |
@@ -228,15 +255,25 @@ For the remainder:
 
   ```
 
+### Remaining Configuration
+
+- The `validation` section allows you to adjust which samples are exported to tensorflow.
+- The `loss_weight` section provides relative weights for different kinds of loss. These are tuned and should not be changed unless you know what you are doing.
+
+
+## 3.2 Preparing Your Dataset
+
+- Note: A sample dataset can be found at [sample_dataset/](sample_dataset/). Please note that this has been provided as a reference only, and will in no way be sufficient to train a model.
+
 - A dataset consists of many segments. Each segment has a written text and an audio file where that text is spoken by a reader.
 - Your dataset should have the following files:
   - your Training List (corresponding to train_data in `my_config.yml`)
   - your Validation List (corresponding to val_data in `my_config.yml`)
   - your Folder with audio wav files (resampled at 24 khz, mono), one for each segment (corresponding to wav_path in `my_config.yml`)
 
-- Segment Distribution:
-  - Segments must have 510 phonemes or less.
-  - Audio segments must be at least 0.25 seconds long.
+- Segment Length Distribution:
+  - Segments must have 510 phonemes or less (currently not a hard limit, but recommended).
+  - Audio segments must be at least 0.25 seconds long (hard limit).
   - The upper limit on audio length is determined by your VRAM and the training stage. If you have enough VRAM, you can include even longer segments, though there are diminishing returns in the usefulness of very long segments.
   - Generally speaking, you will want to have a distribution of segments between 0.25 seconds and 10 seconds long.
     - If your range doesn't cover the shortest lengths, your model will sound worse when doing short utterances of one word or a few words.
@@ -254,7 +291,7 @@ For the remainder:
   - The plaintext is the original text transcript of your utterance before phonemization. It does not need to be tokenized or normalized, but obviously should not include the '|' character, which is to be used as the separator.
 
 
-### 3.3 Generating Pitch Data
+## 3.3 Generating Pitch Data
 
 - Stylish TTS uses a pre-cached ground truth pitch (F0) for all your segments. To generate these pitches, run:
 
@@ -272,7 +309,9 @@ For the remainder:
 - By default, Harvest, which is a CPU-based system, is used to extract pitch. If you find this to be too slow, there is also a GPU-based option available by passing `--method rmvpe` from the command line. When finished, it will write the pre-cached segment pitches at the `pitch_path` file path specified by your `my_config.yml`.
 
 
-### 3.3 Generating Alignment Data
+## 3.3 Generating Alignment Data
+
+### Train Alignment Model
 
 - Alignment data is also pre-cached. This is a multi-step process, but only needs to be done ONCE for your dataset, after which you can just use the cached results (similar to the generated pitch data).
 - First, you need to train your own alignment model:
@@ -303,6 +342,8 @@ For the remainder:
 - Once the alignment stage completes, it will provide a trained model at the file specified in your `my_config.yml`.
 - This is a MODEL, not the alignments themselves.
 
+### Use Alignment Model
+
 - We will use this model to generate the alignments:
 
    **uv:**
@@ -332,7 +373,7 @@ For the remainder:
 - Note: All of the commands above (for Pitch and Alignment) should only need to be done ONCE per dataset, as long as the dataset does not change. Once they are done, their results are kept in your dataset directory. Now we begin ACTUALLY training.
 
 
-### 3.4 Starting a Training Run
+## 3.4 Start a Training Run
 
 - Here is a typical command to start off a new training run:
 
@@ -409,10 +450,6 @@ For the remainder:
   - After training is complete, you will use the checkpoint to generate the ONNX model for inference.
 </details>
 
-- You can load a checkpoint from any stage via the `--checkpoint` argument.
-- You still need to set `--stage` appropriately to one of "alignment|acoustic|textual|duration".
-  - If you set it to the same stage as the checkpoint loaded from, it will continue in that stage at the same step number and epoch.
-  - If it is a different stage, it will train the entire stage.
 - To load a checkpoint:
 
    **uv:**
@@ -423,6 +460,11 @@ For the remainder:
     ```
     stylish-train train /path/to/your/config.yml --stage <stage> --out /path/to/your/output --checkpoint /path/to/your/checkpoint
     ```
+
+- You can load a checkpoint from any stage via the `--checkpoint` argument.
+- You still need to set `--stage` appropriately to one of "alignment|acoustic|textual|duration".
+  - If you set it to the same stage as the checkpoint loaded from, it will continue in that stage at the same step number and epoch.
+  - If it is a different stage, it will train the entire stage.
 
 - Please note that Stylish TTS checkpoints are NOT compatible with StyleTTS 2 checkpoints.
 
