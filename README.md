@@ -501,7 +501,7 @@ The `training_plan` section provides parameters for each stage of training. With
 ### 4.1 Training New Languages
 
 - Grapheme to Phoneme (G2P)
-  - Grapheme-to-phoneme conversion (G2P) is the task of transducing graphemes (i.e. text or letter(s) that spells a sound) to phonemes (i.e. the sound).
+  - Grapheme-to-phoneme conversion (G2P) is the task of converting graphemes (the text we write) to phonemes (the pronunciation of that text as encoded in IPA characters).
   - Each language has its own phonetic rules, and therefore, requires a distinct G2P system. Accurate G2P is critical for the performance of text-to-speech (TTS).
   - The most effective G2P systems are typically tailored to specific languages. These can often be found in research papers focused on phonetics or TTS—try searching for terms like "[language] G2P/TTS site:arxiv.org" or "[language] G2P site:github.com". Libraries such as [misaki](https://github.com/hexgrad/misaki/) may also provide such G2P systems.
   - A commonly used multilingual G2P system is `espeak-ng`, though its accuracy can vary depending on the language. In some cases, a simple approach - using word-to-phoneme mappings from sources like Wiktionary - can be sufficient.
@@ -517,7 +517,7 @@ The `training_plan` section provides parameters for each stage of training. With
     - ---
     </details>
 
-  - If the G2P don't share the same phonetic symbol set in `model.yml`, change the `symbol` section and `text_encoder.tokens`.
+  - If the G2P doesn't share the same phonetic symbol set in `model.yml`, change the `symbol` section and `text_encoder.tokens`.
   - `text_encoder.tokens` should be equal to length of `symbol.pad` + `symbol.punctuation` + `symbol.letters` + `symbol.letters_ipa`
     ```
     ...
