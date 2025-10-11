@@ -549,7 +549,6 @@ def train_duration(
 
     log.add_loss("duration_ce", loss_ce)
     log.add_loss("duration", duration_loss)  # loss_cdw)
-    # log.add_loss("dilation", F.smooth_l1_loss(duration_sums, duration_sum_target))
     train.accelerator.backward(log.backwards_loss())
 
     return log.detach(), None, None
