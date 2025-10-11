@@ -550,14 +550,14 @@ Pending tasks:
 - [x] Merge disc-opt into main
 - [x] Import pitch cache script and make it use a concurrent.futures worker pool
 - [x] Do proper stage detection in dataloader to prevent mixups with precached alignment/pitch
-- [ ] Verify final model architecture
-- [ ] Verify ONNX conversion
-- [ ] Make sure it can work as a PyPi package
+- [x] Verify final model architecture
+- [x] Verify ONNX conversion
+- [x] Make sure it can work as a PyPi package
 - [ ] Replace checkpointing with safetensors instead of accelerator checkpoint
 - [ ] Remove dependency on accelerator
 - [ ] Audit dependencies
 - [ ] Audit and fix any remaining torch warnings
-- [ ] Move test_onnx to stylish-tts module and remake it into at least a barebones inferencer.
+- [x] Move test_onnx to stylish-tts module and remake it into at least a barebones inferencer.
 - [ ] Update this README with Sample / Demo audio clips
 
 
