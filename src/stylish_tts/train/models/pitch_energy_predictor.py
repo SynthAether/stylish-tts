@@ -79,6 +79,8 @@ class PitchEnergyPredictor(torch.nn.Module):
 
         self.F0_proj = torch.nn.Conv1d(inter_dim + style_dim, 1, 1, 1, 0)
         self.N_proj = torch.nn.Conv1d(inter_dim + style_dim, 1, 1, 1, 0)
+        self.voiced_proj = torch.nn.Conv1d(inter_dim + style_dim, 1, 1, 1, 0)
+        self.sigmoid = torch.nn.Sigmoid()
 
     def compute_cross(self, text_encoding, alignment, style, text_mask):
         """
@@ -111,6 +113,8 @@ class PitchEnergyPredictor(torch.nn.Module):
         F0 = x  # .transpose(1, 2)
         for block in self.F0:
             F0 = block(F0, style)
+        voiced = self.voiced_proj(F0)
+        voiced = self.sigmoid(voiced)
         F0 = self.F0_proj(F0)
 
         N = x  # .transpose(1, 2)
@@ -118,7 +122,7 @@ class PitchEnergyPredictor(torch.nn.Module):
             N = block(N, style)
         N = self.N_proj(N)
 
-        return F0.squeeze(1), N.squeeze(1)
+        return F0.squeeze(1), N.squeeze(1), voiced.squeeze(1)
 
 
 def build_monotonic_band_mask(alignment, text_mask, window):

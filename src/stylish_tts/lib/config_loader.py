@@ -129,6 +129,7 @@ class LossWeightConfig(BaseModel):
         ..., description="Weight for speech-language model feature matching loss."
     )
     pitch: float = Field(..., description="Weight for F0 pitch reconstruction loss.")
+    voiced: float = Field(..., description="Weight for F0 voiced reconstruction loss.")
     energy: float = Field(..., description="Weight for energy reconstruction loss.")
     duration: float = Field(..., description="Weight for duration loss.")
     duration_ce: float = Field(

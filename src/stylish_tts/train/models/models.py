@@ -3,7 +3,7 @@ from stylish_tts.lib.config_loader import ModelConfig
 
 from .text_aligner import tdnn_blstm_ctc_model_base
 
-from .discriminator import MultiResolutionDiscriminator
+from .discriminator import MultiResolutionDiscriminator, SpecDiscriminator
 
 from .duration_predictor import DurationPredictor
 from .pitch_energy_predictor import PitchEnergyPredictor
@@ -65,7 +65,10 @@ def build_model(model_config: ModelConfig):
         duration_predictor=duration_predictor,
         pitch_energy_predictor=pitch_energy_predictor,
         speech_predictor=SpeechPredictor(model_config),
-        mrd=MultiResolutionDiscriminator(discriminator_count=multi_spectrogram_count),
+        # mrd=MultiResolutionDiscriminator(discriminator_count=multi_spectrogram_count),
+        mrd0=SpecDiscriminator(),
+        mrd1=SpecDiscriminator(),
+        mrd2=SpecDiscriminator(),
         pe_text_encoder=pe_text_encoder,
         pe_text_style_encoder=pe_text_style_encoder,
         pe_mel_style_encoder=pe_mel_style_encoder,

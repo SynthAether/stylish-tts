@@ -306,7 +306,7 @@ def convert(config_path, model_config_path, duration, speech, checkpoint):
         model[key] = accelerator.prepare(model[key])
         model[key].to(config.training.device)
 
-    disc_loss = DiscriminatorLoss(mrd=model.mrd)
+    disc_loss = DiscriminatorLoss(mrd0=model.mrd0, mrd1=model.mrd1, mrd2=model.mrd2)
 
     from stylish_tts.train.train_context import NormalizationStats
 

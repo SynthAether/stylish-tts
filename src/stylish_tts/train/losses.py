@@ -9,6 +9,7 @@ import numpy as np
 import k2
 from einops import rearrange
 from stylish_tts.train.multi_spectrogram import multi_spectrogram_count
+from stylish_tts.train.models.discriminator import run_discriminator_model
 
 
 class MultiResolutionSTFTLoss(torch.nn.Module):
@@ -155,23 +156,31 @@ class MagPhaseLoss(torch.nn.Module):
 
 
 class DiscriminatorLoss(torch.nn.Module):
-    def __init__(self, *, mrd):
+    def __init__(self, *, mrd0, mrd1, mrd2):
         super(DiscriminatorLoss, self).__init__()
         self.discriminators = torch.nn.ModuleDict(
             {
-                "mrd": DiscriminatorLossHelper(mrd, multi_spectrogram_count),
+                "mrd0": DiscriminatorLossHelper(mrd0, 1),  # multi_spectrogram_count),
+                "mrd1": DiscriminatorLossHelper(mrd1, 1),  # multi_spectrogram_count),
+                "mrd2": DiscriminatorLossHelper(mrd2, 1),  # multi_spectrogram_count),
             }
         )
+        self.disc_list = [
+            self.discriminators["mrd0"],
+            self.discriminators["mrd1"],
+            self.discriminators["mrd2"],
+        ]
 
     def get_disc_lr_multiplier(self, key):
         return self.discriminators[key].get_disc_lr_multiplier()
 
-    def forward(self, *, target_list, pred_list, used):
-        loss = 0
-        for key in used:
-            loss += self.discriminators[key](
-                target_list=target_list, pred_list=pred_list
-            )
+    def forward(self, *, target_list, pred_list, used, index):
+        loss = self.disc_list[index](target=target_list[index], pred=pred_list[index])
+        # loss = 0
+        # for key in used:
+        #     loss += self.discriminators[key](
+        #         target_list=target_list, pred_list=pred_list
+        #     )
         return loss.mean()
 
     def state_dict(self, *args, **kwargs):
@@ -245,10 +254,11 @@ class DiscriminatorLossHelper(torch.nn.Module):
             loss += tau - F.relu(tau - l_rel)
         return loss
 
-    def forward(self, *, target_list, pred_list):
-        real_score, gen_score, _, _ = self.model(
-            target_list=target_list, pred_list=pred_list
-        )
+    def forward(self, *, target, pred):
+        # real_score, gen_score, _, _ = self.model(
+        #     target_list=target_list, pred_list=pred_list
+        # )
+        real_score, gen_score, _, _ = run_discriminator_model(self.model, target, pred)
         disc = self.discriminator_loss(real_score, gen_score)
         tprls = self.tprls_loss(real_score, gen_score)
         self.last_loss = self.last_loss * 0.95 + disc.item() * 0.05
@@ -256,18 +266,26 @@ class DiscriminatorLossHelper(torch.nn.Module):
 
 
 class GeneratorLoss(torch.nn.Module):
-    def __init__(self, *, mrd):
+    def __init__(self, *, mrd0, mrd1, mrd2):
         super(GeneratorLoss, self).__init__()
         self.generators = torch.nn.ModuleDict(
             {
-                "mrd": GeneratorLossHelper(mrd),
+                "mrd0": GeneratorLossHelper(mrd0),
+                "mrd1": GeneratorLossHelper(mrd1),
+                "mrd2": GeneratorLossHelper(mrd2),
             }
         )
+        self.gen_list = [
+            self.generators["mrd0"],
+            self.generators["mrd1"],
+            self.generators["mrd2"],
+        ]
 
-    def forward(self, *, target_list, pred_list, used):
-        loss = 0
-        for key in used:
-            loss += self.generators[key](target_list=target_list, pred_list=pred_list)
+    def forward(self, *, target_list, pred_list, used, index):
+        loss = self.gen_list[index](target=target_list[index], pred=pred_list[index])
+        # loss = 0
+        # for key in used:
+        #     loss += self.generators[key](target_list=target_list, pred_list=pred_list)
         return loss.mean()
 
 
@@ -304,10 +322,13 @@ class GeneratorLossHelper(torch.nn.Module):
             loss += tau - F.relu(tau - L_rel)
         return loss
 
-    def forward(self, *, target_list, pred_list):
-        real_score, gen_score, real_features, gen_features = self.model(
-            target_list=target_list, pred_list=pred_list
+    def forward(self, *, target, pred):
+        real_score, gen_score, real_features, gen_features = run_discriminator_model(
+            self.model, target, pred
         )
+        # real_score, gen_score, real_features, gen_features = self.model(
+        #     target_list=target_list, pred_list=pred_list
+        # )
         feature = self.feature_loss(real_features, gen_features)
         gen = self.generator_loss(gen_score)
         tprls = self.tprls_loss(real_score, gen_score)

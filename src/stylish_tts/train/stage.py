@@ -1,5 +1,6 @@
 import json
 import math
+import random
 import os
 import os.path as osp
 import traceback
@@ -108,17 +109,28 @@ class Stage:
             config.discriminators,
             train,
         )
-        result, target_spec, pred_spec = self.train_fn(batch, model, train, probing)
+        if probing:
+            disc_index = 0
+        else:
+            # TODO: Fix hardcoded value
+            disc_index = random.randrange(3)
+        result, target_spec, pred_spec = self.train_fn(
+            batch, model, train, probing, disc_index
+        )
         optimizer_step(self.optimizer, config.train_models)
         if len(config.discriminators) > 0:
             # audio_gt = batch.audio_gt.unsqueeze(1)
             # audio = audio.detach()
             train.stage.optimizer.zero_grad()
             d_loss = train.discriminator_loss(
-                target_list=target_spec, pred_list=pred_spec, used=config.discriminators
+                target_list=target_spec,
+                pred_list=pred_spec,
+                used=config.discriminators,
+                index=disc_index,
             )
             train.accelerator.backward(d_loss * math.sqrt(batch.text.shape[0]))
-            optimizer_step(self.optimizer, config.discriminators)
+            disc_list = [f"mrd{disc_index}"]
+            optimizer_step(self.optimizer, disc_list)  # config.discriminators)
             train.stage.optimizer.zero_grad()
             result.add_loss("discriminator", d_loss)
         return result.detach()
