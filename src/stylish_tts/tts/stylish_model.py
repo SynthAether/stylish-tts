@@ -34,7 +34,7 @@ class StylishModel:
                 "text_lengths": text_lengths,
             },
         )
-        return np.multiply(outputs[0], 32768).astype(np.int16)
+        return outputs[0]
 
     def sample_rate(self):
         return self.model_config.sample_rate
