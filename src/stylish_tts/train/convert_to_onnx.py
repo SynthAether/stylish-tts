@@ -20,14 +20,18 @@ def add_meta_data_onnx(filename, key, value):
 
 def convert_to_onnx(
     model_config: ModelConfig,
-    duration_path,
     speech_path,
     model_in,
     device,
     duration_processor,
 ):
     text_cleaner = TextCleaner(model_config.symbol)
-    model = ExportModel(**model_in, device=device).eval()
+    model = ExportModel(
+        **model_in,
+        device=device,
+        class_count=duration_processor.class_count,
+        max_dur=duration_processor.max_dur,
+    ).eval()
     stft = STFT(
         filter_length=model_config.n_fft,
         hop_length=model_config.hop_length,
@@ -54,35 +58,6 @@ def convert_to_onnx(
 
     with torch.no_grad():
         inputs = (texts, text_lengths)
-        exported_program = torch.export.export(
-            duration_predictor,
-            inputs,
-            dynamic_shapes=(
-                (1, Dim.DYNAMIC),
-                (1,),
-            ),
-        )
-        onnx_program = torch.onnx.export(
-            exported_program,
-            inputs,
-            opset_version=19,
-            f=duration_path,
-            input_names=["texts", "text_lengths"],
-            output_names=["duration"],
-            dynamo=True,
-            optimize=False,
-            dynamic_shapes={
-                "texts": (1, Dim.DYNAMIC),
-                "text_lengths": (1,),
-            },
-        )
-        onnx_program.save(duration_path)
-
-        dur_pred = duration_predictor(texts, text_lengths)
-        dur_pred = rearrange(dur_pred, "1 k c -> k c")
-        alignment = duration_processor(dur_pred, text_lengths).unsqueeze(0)
-
-        inputs = (texts, text_lengths, alignment)
 
         exported_program = torch.export.export(
             model,
@@ -90,11 +65,10 @@ def convert_to_onnx(
             dynamic_shapes=(
                 (1, Dim.DYNAMIC),
                 (1,),
-                (1, Dim.DYNAMIC, Dim.DYNAMIC),
             ),
         )
 
-        sample = exported_program.module().forward(texts, text_lengths, alignment)
+        sample = exported_program.module().forward(texts, text_lengths)
         sample = sample.cpu().numpy()
         from scipy.io.wavfile import write
         import numpy as np
@@ -107,14 +81,13 @@ def convert_to_onnx(
             inputs,
             opset_version=19,
             f=speech_path,
-            input_names=["texts", "text_lengths", "alignment"],
+            input_names=["texts", "text_lengths"],
             output_names=["waveform"],
             dynamo=True,
             optimize=False,
             dynamic_shapes=(
                 (1, Dim.DYNAMIC),
                 (1,),
-                (1, Dim.DYNAMIC, Dim.DYNAMIC),
             ),
             # report=True,
         )

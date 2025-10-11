@@ -47,6 +47,7 @@ Repository = "https://github.com/Stylish-TTS/stylish-tts"
 
 [project.scripts]
 stylish-train = "stylish_tts:train_cli"
+stylish-tts = "stylish_tts:tts_cli"
 
 [project.optional-dependencies]
 train = [

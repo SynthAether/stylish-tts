@@ -212,6 +212,7 @@ class MultiHeadAttention(nn.Module):
         self.use_sdpa = use_sdpa
 
     def forward(self, x, c, attn_mask=None):
+        torch._check(x.shape[2] > 0)
         q = self.conv_q(x)
         k = self.conv_k(c)
         v = self.conv_v(c)

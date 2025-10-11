@@ -188,6 +188,7 @@ class ConformerConvModule(nn.Module):
         )
 
     def forward(self, x, style):
+        torch._check(2050 * x.shape[1] < 2147483647)
         x = self.norm(x, style)
         return self.net(x)
 

@@ -258,9 +258,6 @@ def train(config_path, model_config_path, out, stage, checkpoint, reset_stage):
     type=str,
     help="Model configuration (optional), defaults to known-good model parameters.",
 )
-@click.option(
-    "--duration", required=True, type=str, help="Path to write duration model"
-)
 @click.option("--speech", required=True, type=str, help="Path to write speech model")
 @click.option(
     "--checkpoint",
@@ -268,7 +265,7 @@ def train(config_path, model_config_path, out, stage, checkpoint, reset_stage):
     type=str,
     help="Path to a model checkpoint to load for conversion",
 )
-def convert(config_path, model_config_path, duration, speech, checkpoint):
+def convert(config_path, model_config_path, speech, checkpoint):
     """Convert a model to ONNX
 
     The converted model will be saved in <out-file>.
@@ -321,7 +318,6 @@ def convert(config_path, model_config_path, duration, speech, checkpoint):
 
     convert_to_onnx(
         model_config,
-        duration,
         speech,
         model,
         config.training.device,

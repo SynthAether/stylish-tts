@@ -486,14 +486,17 @@ The `training_plan` section provides parameters for each stage of training. With
    ```
 
 - Using the ONNX model for Inference:
+
+  **uv:**
   ```
-  uv run stylish-tts/train/test_onnx.py --duration /path/to/your/output/duration.onnx --speech /path/to/your/output/speech.onnx \
-      --text "ðˈiːz wˈɜː tˈuː hˈæv ˈæn ɪnˈɔːɹməs ˈɪmpækt , nˈɑːt ˈoʊnliː bɪkˈɔz ðˈeɪ wˈɜː əsˈoʊsiːˌeɪtᵻd wˈɪð kˈɑːnstəntˌiːn ," \
-      --text "bˈʌt ˈɔlsoʊ bɪkˈɔz , ˈæz ɪn sˈoʊ mˈɛniː ˈʌðɚ ˈɛɹiːəz , ðə dɪsˈɪʒənz tˈeɪkən bˈaɪ kˈɑːnstəntˌiːn ( ˈɔːɹ ɪn hˈɪz nˈeɪm ) wˈɜː tˈuː hˈæv ɡɹˈeɪt səɡnˈɪfɪkəns fˈɔːɹ sˈɛntʃɚiːz tˈuː kˈʌm ." \
-      --combine true
+  uv run stylish-tts speak /path/to/your/output/speech.onnx < /your/phonemes.txt
   ```
-  The `text` parameters in the above example have content as phonemes, corresponding to the following transcript:
-    - "These were to have an enormous impact, not only because they were associated with Constantine, but also because, as in so many other areas, the decisions taken by Constantine (or in his name) were to have great significance for centuries to come."
+  **pip:**
+  ```
+  uv run stylish-tts speak /path/to/your/output/speech.onnx < /your/phonemes.txt
+  ```
+
+  Your file should contain phonemized text, one utterance per line. The utterances will be automatically concatenated together. Look at the `tts/cli.py` and `tts/stylish_model.py` files to see how this is implemented and you can make your own inference workflow using those as your starting point.
 
 
 # 4. Other Forms of Model Training
