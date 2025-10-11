@@ -5,6 +5,8 @@ from munch import Munch
 import os
 import subprocess
 from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+import stylish_tts
+import importlib
 
 nv_init = False
 
@@ -305,34 +307,37 @@ def recursive_munch(d):
 
 
 def get_git_commit_hash():
+    path = os.path.dirname(stylish_tts.__file__)
     try:
         commit_hash = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"])
+            subprocess.check_output(["git", "-C", path, "rev-parse", "HEAD"])
             .strip()
             .decode("utf-8")
         )
         return commit_hash
     except subprocess.CalledProcessError as e:
-        print("Error obtaining git commit hash:", e)
-        return "unknown"
+        version = importlib.metadata.version("stylish_tts")
+        return f"Version {version}"
 
 
 def get_git_diff():
+    path = os.path.dirname(stylish_tts.__file__)
     try:
         # Run the git diff command
-        diff_output = subprocess.check_output(["git", "diff"]).decode("utf-8")
+        diff_output = subprocess.check_output(["git", "-C", path, "diff"]).decode(
+            "utf-8"
+        )
         return diff_output
     except subprocess.CalledProcessError as e:
-        print("Error obtaining git diff:", e)
         return ""
 
 
 def save_git_diff(out_dir):
-    hash = get_git_commit_hash()
+    commit_hash = get_git_commit_hash()
     diff = get_git_diff()
     diff_file = os.path.join(out_dir, "git_state.txt")
     with open(diff_file, "w") as f:
-        f.write(f"Git commit hash: {hash}\n\n")
+        f.write(f"Git commit hash or version: {commit_hash}\n\n")
         f.write(diff)
     print(f"Git diff saved to {diff_file}")
 

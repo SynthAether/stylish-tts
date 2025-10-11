@@ -1,264 +1,574 @@
-# Stylish TTS
 
-Stylish TTS is a lightweight text-to-speech system suitable for offline local use. Our goal is providing consistency for long form text and screen reading with a focus on high quality single speaker models rather than zero-shot voice cloning. The architecture was based on [StyleTTS 2](https://github.com/yl4579/StyleTTS2), but has now diverged substantially.
+# Stylish TTS (Text-To-Speech) System For Model Training
+<!-- <img src="https://img.icons8.com/?size=512&id=i46MwMdULdEi&format=png" alt="Alt text" width="100"> -->
 
-TODO: Make some samples
+# Quick Links:
+1. [What is Stylish TTS?](#1-what-is-stylish-tts)
+    1. [Overview](#11-overview)
+    2. [Current Status](#12-current-status)
+2. [Installation](#2-installation)
+    1. [Inference](#21-inference)
+    2. [Training](#22-training)
+3. [Training Your Model](#3-training-your-model)
+    1. [Creating your config.yml file](#31-creating-your-configyml-file)
+    2. [Preparing Your Dataset](#32-preparing-your-dataset)
+    3. [Generating Pitch and Alignment Data](#33-generating-pitch-and-alignment-data)
+    4. [Starting a Training Run](#34-starting-a-training-run)
+    5. [(Optional) Loading a Checkpoint](#35-optional-loading-a-checkpoint)
+    6. [Exporting to ONNX (for Deployment and Inference)](#36-exporting-to-onnx-for-deployment-and-inference)
+4. [Other Forms of Model Training](#4-other-forms-of-model-training)
+    1. [Training New Languages](#41-training-new-languages)
+5. [Roadmap to v1.0 Release](#5-roadmap-to-v10-release)
+6. [License](#6-license)
+7. [Citations](#7-citations)
 
-# Roadmap to Release
+# 1. What is Stylish TTS?
 
-Stylish TTS is getting close to release. But before release, we need to complete these tasks:
+### 1.1 Overview
+- Stylish TTS is a lightweight, high-performance Text-To-Speech (TTS) system for training TTS models that are suitable for offline local use. Our focus has been to reduce training cost and difficulty while maintaining quality.
+- The architecture was based on [StyleTTS 2](https://github.com/yl4579/StyleTTS2), but has now diverged substantially.
+- The current goal is to allow training high quality, single-speaker text-to-speech models (rather than zero-shot voice cloning) as well as offering consistent text-to-speech results for long-form text and screen reading.
 
-- [ ] Verify final model architecture
+### 1.2 Current Status
+- Stylish TTS is currently in Alpha/testing. It has been mostly tested with Linux and NVidia hardware, though it should be feasible to train it work using other graphics cards or even on CPU. We are currently working on adding support for Mac hardware. Stylish TTS is approaching the [v1.0 release](#5-roadmap-to-v10-release). Feel free to try it now, though remember that we still might make breaking changes before release and many scenarios are untested.
+
+
+# 2. Installation
+
+### 2.1 Inference
+
+Complete models are converted to ONNX and so you will need a version of the onnx runtime.
+TBD: More dependencies as we flesh out inference
+
+### 2.2 Training:
+
+Instructions are provided for both `uv` or `pip`. Install your preferred Python package manager and refer to the associated instructions.
+
+You will need to install `k2` during the installation process. This is a bit trickier than other dependencies:
+- Installing `k2` requires you to find the correct wheel from their installation page to install. Refer to thair [installation instructions](https://k2-fsa.github.io/k2/installation/index.html)
+- `k2` includes PyTorch version, Python version, CUDA version (for non-CPU installs), and OS as part of their URL. Make sure you pick the right one.
+- Use the proper wheel URL below where you see `<K2_URL>`
+- Make sure your `<K2_URL>` is not itself escaped (you should see a '+' in it instead of '%2B').
+- If you are using a non-cuda GPU, install the CPU variant of `k2` and during alignment training (the only place using k2), it will automatically fall back on the CPU device. Alignment training is reasonably fast even on CPU.
+- If you run into issues after installing, try removing `k2`, verifying that all the various versions are expected, then re-installing using the correct wheel.
+
+<details>
+	<summary>📘 <b>Installation via uv</b></summary>
+
+```
+# Create a folder for your uv project
+mkdir my-training-dir
+cd my-training-dir
+
+# stylish-tts currently uses Python 3.12
+uv init --python 3.12
+
+# Install pytorch and onnx.
+# Use onnxruntime-gpu if you want to do test inference with a GPU.
+uv add torch torchaudio onnxruntime
+
+# Install k2. Remember to use the <K2_URL> you found above via the k2 installation instructions
+uv add "k2 @ <K2_URL>"
+
+# Sync packages and verify that things work
+uv sync
+
+# Verify that k2 was installed successfully
+uv run python -c "import k2; print('k2 installed successfully')"
+
+# Clone the stylish-tts source somewhere (TODO: Fix this when we upload a package)
+git clone https://github.com/Stylish-TTS/stylish-tts.git
+
+# Install stylish-tts as a local editable package
+# Automatically rebuilds if contents change
+uv add --editable stylish-tts/
+```
+
+</details>
+
+<details>
+	<summary>📘 <b>Installation via pip</b></summary>
+
+```
+# stylish-tts currently uses Python 3.12
+# Use pyenv or equivalent to ensure the venv uses Python 3.12
+# pyenv install 3.12.7 && pyenv local 3.12.7
+
+# Ensure pip is installed via your package manager
+
+# Create a folder for your uv project
+mkdir my-training-dir
+cd my-training-dir
+
+# Set up virtual environment
+python3.12 -m venv venv
+# Activate virtual environment (needs to be done every time you begin a new session)
+source venv/bin/activate
+
+# Install pytorch and onnx.
+# Use onnxruntime-gpu if you want to do test inference with a GPU.
+pip install torch torchaudio onnxruntime
+
+mkdir k2_install
+curl -L -o "k2_install/<K2_FILENAME>" "<K2_URL>"
+# Install k2 from the downloaded wheel
+pip install "k2_install/<K2_FILENAME>"
+
+# Verify that k2 was installed successfully
+python -c "import k2; print('k2 installed successfully')"
+
+# Clone the stylish-tts source somewhere (TODO: Fix this when we upload a package)
+git clone https://github.com/Stylish-TTS/stylish-tts.git
+
+# Install stylish-tts as a local editable package from the stylish-tts/ directory.
+# Automatically rebuilds if contents change.
+# IMPORTANT: Don't forget the trailing slash /
+pip install -e stylish-tts/
+```
+
+</details>
+
+### Extras
+
+<details>
+  <summary>📘 <b>Optional Dependency: tensorboard</b></summary>
+
+`tensorboard` is a separate application you can run which lets you see graphs of your loss functions and listen to samples produced at each validation.
+- Data for tensorboard is generated in your output directories regardless of whether tensorboard is installed.
+- tensorboard creates a HTTP server on localhost and provides a URL you can point your browser at to check on your training.
+- You can also see training data showing up in the `train.log` file, but this tends to be less useful than the interactive graphs provided by tensorboard.
+
+</details>
+
+<details>
+  <summary>📘 <b>PyTorch and old GPU cards</b></summary>
+
+The latest versions of PyTorch can drop support for older GPUs. If you have an old GPU:
+- Use the latest version of `torch` and `torchaudio` which supports your GPU. If your GPU is older and requires you to use an older version of `torch`, make sure to use the same version of `torchaudio` during training.
+- If you are using an older version of `torch` for training, make a separate virtual environment/directory to use during model conversion and use a device of `cpu` and the latest version of torch for project conversion. This will ensure that you are converting using the most up-to-date version of Torch Dynamo.
+
+</details>
+
+
+# 3. Training Your Model
+
+In order to train your model, you will need:
+- A GPU (or a CPU and plenty of time) with PyTorch support and at least 16GB of VRAM
+- Appropriate drivers and software for your GPU installed
+- A [Dataset](#32-preparing-your-dataset) for your model with at least 25 hours of text/audio pairs
+	- You will be training a base model from scratch. So just a few minutes of data is not enough.
+
+## 3.1 Create your config.yml file
+- You will need your own `config.yml` file (say `my_config.yml`) created from the template [here](https://github.com/Stylish-TTS/stylish-tts/blob/main/config/config.yml). You can store it anywhere, like at the root of your project.
+
+
+### Training Configuration
+
+```
+	training:
+	  log_interval: 1000
+	  save_interval: 5000
+	  val_interval: 5000
+	  device: "cuda"
+	  mixed_precision: "no"
+	  vram_reserve: 200
+	  data_workers: 32
+```
+
+- How often to log training data, how often to save a checkpoint, and how often to run a validation to see how the model is doing can all be set to your personal preference of impatience vs. overhead. `log_interval`, `save_interval`, and `val_interval` are all in steps.
+- You will need to specify the `device` ("cuda", "mps", "cpu" or whatever will work with your torch installation).
+- `vram_reserve` allocates an extra block of memory when probing how big batch sizes can be. It reduces the odds of having out-of-memory events.
+- `data_workers` sets how many processes will be used to prepare data for training. If your GPU is under-utilized and you have spare CPU cores, you can set this higher to go faster.
+  - **Note:** For Mac users, set `data_workers` to 0 for now. There is a known issue with dataloader concurrency that we are looking into.
+
+### Training Plan Configuration
+
+```
+training_plan:
+  alignment:
+    epochs: 20
+    probe_batch_max: 128
+    lr: 1e-5
+  acoustic:
+    epochs: 10
+    probe_batch_max: 16
+    lr: 1e-4
+  textual:
+    epochs: 10
+    probe_batch_max: 16
+    lr: 3e-5
+  style:
+    epochs: 50
+    probe_batch_max: 128
+    lr: 1e-5
+  duration:
+    epochs: 50
+    probe_batch_max: 128
+    lr: 1e-4
+```
+
+The `training_plan` section provides parameters for each stage of training. With more testing we'll provide concrete guidelines for each of this.
+- Generally, leave the learning rate (`lr`) alone as this has been tuned.
+- If you have a small dataset, you will want to increase the number of `epochs`.
+  - `acoustic` and `textual` stages are SLOW. The other stages are FAST.
+  - Generally you want the same number of epochs for `acoustic` and `textual`.
+  - The number above assume a 100-hour dataset. Make them proportionally larger for smaller datasets.
+- If you have a GPU with a lot of VRAM, you will want to have higher `probe_batch_max`. TODO: Guidance
+- If you are training using a CPU or are using an architecture with unified memory (like Mac), set `probe_max_batch` to 2 for every stage. The batch probing works by pushing until it runs out of memory. That will make you sad if this is system memory instead of VRAM memory.
+
+### Dataset Configuration
+
+- The `path` should be the root of your dataset, and the various other paths in this section are relative to that root. If you use the default file and directory names, your directory structure will look something like this:
+  ```
+  dataset:
+    # All paths in this section are relative to the main path
+    path: "../my_dataset/"
+    train_data: "training-list.txt"
+    val_data: "validation-list.txt"
+    wav_path: "wav-dir"
+    pitch_path: "pitch.safetensors"
+    alignment_path: "alignment.safetensors"
+    alignment_model_path: "alignment_model.safetensors"
+  ```
+
+- The structure of your dataset folder from this example would look like this:
+  ```
+  ../my_dataset/             # Root
+  |
+  +-> training-list.txt             # Training list file (described below)
+  |
+  +-> validation-list.txt           # Validation list file (described below)
+  |
+  +-> wav-dir                       # Folder with audio wav files, one for each segment
+  |   |
+  |   +-> something.wav
+  |   |
+  |   +-> other.wav
+  |   |
+  |   +-> ...
+  |
+  +-> pitch.safetensors             # Pre-cached segment pitches (file gets generated at `pitch_path` in `my_config.yml`. See below)
+  |
+  +-> alignment.safetensors         # Pre-cached alignments (file gets generated at `alignment_path` in `my_config.yml`. See below)
+  |
+  +-> alignment_model.safetensors   # Model for generating alignments. You will train this (gets generated at `alignment_model_path`  in `my_config.yml`. See below)
+
+  ```
+
+### Remaining Configuration
+
+- The `validation` section allows you to adjust which samples are exported to tensorflow.
+- The `loss_weight` section provides relative weights for different kinds of loss. These are tuned and should not be changed unless you know what you are doing.
+
+
+## 3.2 Preparing Your Dataset
+
+- Note: A sample dataset can be found at [sample_dataset/](sample_dataset/). Please note that this has been provided as a reference only, and will in no way be sufficient to train a model.
+
+- A dataset consists of many segments. Each segment has a written text and an audio file where that text is spoken by a reader.
+- Your dataset should have the following files:
+  - your Training List (corresponding to train_data in `my_config.yml`)
+  - your Validation List (corresponding to val_data in `my_config.yml`)
+  - your Folder with audio wav files (resampled at 24 khz, mono), one for each segment (corresponding to wav_path in `my_config.yml`)
+
+- Segment Length Distribution:
+  - Segments must have 510 phonemes or less (currently not a hard limit, but recommended).
+  - Audio segments must be at least 0.25 seconds long (hard limit).
+  - The upper limit on audio length is determined by your VRAM and the training stage. If you have enough VRAM, you can include even longer segments, though there are diminishing returns in the usefulness of very long segments.
+  - Generally speaking, you will want to have a distribution of segments between 0.25 seconds and 10 seconds long.
+    - If your range doesn't cover the shortest lengths, your model will sound worse when doing short utterances of one word or a few words.
+    - If your range doesn't cover longer lengths which include multiple sentences, your model will tend to skip past punctuation too quickly.
+
+- Training List and Validation List:
+  - Training and Validation lists are a series of lines in the following format: `<filename>|<phonemes>|<speaker-id>|<plaintext>`
+  - The training list should consist of roughly 99% of your segments and the validation list should consist of the remainder.
+  - Examples of entries in the Training and Validation lists:
+      - `1.wav|ɔnðə kˈɑːntɹɛɹi|0|On the contrary`
+      - `2.wav|fɚðə fˈɜːst tˈaɪm|0|For the first time`
+  - The filename is the name of the file for the segment audio. It should be a .wav file (24 khz, mono) in the wav_path folder specified in your `my_config.yml`.
+  - The phonemes are the IPA representation of how your segment text is pronounced. You may use `espeak-ng` (or a similar G2P system) to create phonemes corresponding to each audio file.
+  - Speaker ID is an arbitrary integer which should be applied to every segment that has the same speaker. For single-speaker datasets, this will typically always be '0'.
+  - The plaintext is the original text transcript of your utterance before phonemization. It does not need to be tokenized or normalized, but obviously should not include the '|' character, which is to be used as the separator.
+
+
+## 3.3 Generating Pitch Data
+
+- Stylish TTS uses a pre-cached ground truth pitch (F0) for all your segments. To generate these pitches, run:
+
+   **uv:**
+   ```
+   uv run stylish-train pitch /path/to/your/config.yml --workers 16
+   ```
+   **pip:**
+   ```
+   stylish-train pitch /path/to/your/config.yml --workers 16
+   ```
+
+
+- The number of workers should be approximately equal to the number of cores on your machine.
+- By default, Harvest, which is a CPU-based system, is used to extract pitch. If you find this to be too slow, there is also a GPU-based option available by passing `--method rmvpe` from the command line. When finished, it will write the pre-cached segment pitches at the `pitch_path` file path specified by your `my_config.yml`.
+
+
+## 3.3 Generating Alignment Data
+
+### Train Alignment Model
+
+- Alignment data is also pre-cached. This is a multi-step process, but only needs to be done ONCE for your dataset, after which you can just use the cached results (similar to the generated pitch data).
+- First, you need to train your own alignment model:
+
+   **uv:**
+   ```
+   uv run stylish-train train-align /path/to/your/config.yml --out /path/to/your/output
+   ```
+   **pip:**
+   ```
+   stylish-train train-align /path/to/your/config.yml --out /path/to/your/output
+   ```
+
+<details>
+<summary>📘 <b>Expectations during alignment pre-training</b></summary>
+
+- Expectations during alignment pre-training:
+  - In this stage, a special adjustment is made to the training parameters at the end of each epoch.
+  - This adjustment means there will be a discontinuity in the training curve between epochs. This adjustment will eventually make the loss turn NEGATIVE. This is normal. If your training align_loss does not eventually turn negative, that is a sign that you likely need to train more.
+  - At each validation step, both an un-adjusted align_loss and a confidence score are generated. 
+    - align_loss should be going down.
+    - Confidence score should be going up.
+    - You want to pick a number of epochs so that these scores reach the knee in their curve. Do not keep training forever just because they are slowly improving. If you run into issues where things are not converging later, it is likely that you need to come back to this step and train a different amount to hit that "knee" in the loss curve.
+  - During alignment pre-training, we ALSO train on the validation set. This is usually a very, very bad thing in Machine Learning (ML). But in this case, the alignment model will never be used for aligning out-of-distribution segments. Doing this gives us a more representative sample for acoustic and textual training and does not have any other effects on overall training.
+</details>
+
+- The `--out` option is where logs and checkpoints will end up.
+- Once the alignment stage completes, it will provide a trained model at the file specified in your `my_config.yml`.
+- This is a MODEL, not the alignments themselves.
+
+### Use Alignment Model
+
+- We will use this model to generate the alignments:
+
+   **uv:**
+   ```
+   uv run stylish-train align /path/to/your/config.yml
+   ```
+   **pip:**
+   ```
+   stylish-train align /path/to/your/config.yml
+   ```
+
+- This generates the actual cached alignments for all the segments in both the training and validation data as configured in your config.yml. It outputs its results to the alignment file from your `my_config.yml`.
+
+
+<details>
+<summary>📘 <b>OPTIONAL: Culling Bad Alignments</b></summary>
+
+- OPTIONAL: Culling Bad Alignments
+  - Running `stylish-tts align` generates a "confidence value" score for every segment it processes. These scores are written to files in your dataset `path`.
+  - Confidence is not a guarantee of accuracy, because the model could be confidently wrong. But it is a safe bet that the segments that it is the least confident about either:
+    - Have a problem (perhaps the text doesn't match the audio) or
+    - Are just a bad fit for the model's heuristics.
+  - Culling the segments with the least confidence will make your model converge faster, though it also means it will use less training data overall.
+  - We have found that culling the 10% with the lowest confidence scores is a good balance.
+</details>
+
+- Note: All of the commands above (for Pitch and Alignment) should only need to be done ONCE per dataset, as long as the dataset does not change. Once they are done, their results are kept in your dataset directory. Now we begin ACTUALLY training.
+
+
+## 3.4 Start a Training Run
+
+- Here is a typical command to start off a new training run:
+
+   **uv:**
+   ```
+   uv run stylish-train train /path/to/your/config.yml --out /path/to/your/output
+   ```
+   **pip:**
+   ```
+   stylish-train train /path/to/your/config.yml --out /path/to/your/output
+   ```
+
+- All checkpoint, training logs, and tensorboard data are sent to the path you specify with `--out`.
+- Make sure to have plenty of disk space available here as checkpoints can take a large amount of storage.
+
+- Expectations During Training
+  - It will take a LONG time to run this script. So, it is a good idea to run using `screen` or `tmux` to have a persistent shell that won't disappear if you get disconnected or close the window.
+  - Training happens over the course of four stages:
+    - The four main stages of training are `acoustic`, `textual`, `style`, and `duration`. 
+    - When you begin training, it will start with the `acoustic` stage by default.
+    - As each stage ends, the next will automatically begin.
+    - You can specify a stage with the `--stage` option, which is necessary if you are resuming from a checkpoint.
+  - Stages advance automatically and a checkpoint is created at the end of every stage before moving to the next. Other checkpoints will be saved and validations will be periodically run based on your `my_config.yml` settings.
+  - Each stage will have its own sub-directory of `out`, and its own training log and tensorboard graphs/samples.
+
+<details>
+<summary>📘 <b>Expectations for Acoustic training</b></summary>
+
+- Acoustic training is about training the fundamental acoustic speech prediction models which feed into the vocoder. We 'cheat' by feeding these models parameters derived directly from the audio segments. The pitch, energy, and alignments all come from our target audio. Pitch and energy are still being trained here, but they are not being used to generate predicted audio.
+- The main loss figure to look at is `mel` which is a perceptual similarity of the generated audio to the ground truth. It should slowly decrease during training, but the exact point at which it converges will depend on your dataset. The other loss figures can generally be ignored and may not vary much during training.
+- By the end of acoustic training, the samples should sound almost identical to ground-truth. These are probably going to be the best-sounding samples you listen to. But of course this is because it is doing the easiest version of the task.
+
+</details>
+
+<details>
+<summary>📘 <b>Expectations for Textual training</b></summary>
+
+- In textual training, the acoustic speech prediction is frozen while the focus of training becomes pitch and energy. An acoustic style model still 'cheats' by using audio to generate a prosodic style. This style along with the base text are what is used to calculate the pitch and energy values for each time location.
+- Here, `mel`, `pitch`, and `energy` losses are all important. You should expect mel loss to always be much higher in this stage than the acoustic stage. And it will only very gradually go down. Since there are three losses here, keeping an eye on total loss is more useful. It will be a lot less stable than in acoustic, but there is still a clear trend downwards.
+- As training goes on, the voice should sound less strained, less 'warbly', and more natural. Make sure you are listening for the tone of the sound and how loud it is rather than strict prosody because the samples are still using the ground truth alignment.
+
+</details>
+
+<details>
+<summary>📘 <b>Expectations for Style training</b></summary>
+
+- Here the only 'cheating' we do is to use the ground-truth alignment. The predicted pitch and energy are used to directly predict the audio. A textual style encoder is trained to produce the same outputs as the acoustic model from the previous stage.
+- Aside from that, the training regimen should look a lot like the previous stage. `mel`, `pitch`, and `energy` should all trend downward but expect `mel` to be higher than the previous stage.
+
+</details>
+
+<details>
+<summary>📘 <b>Expectations for Duration training</b></summary>
+
+- The final stage of training removes our last 'cheat' and trains the duration predictor to try to replicate the prosody of the original. The other models are frozen. All samples use only values predicted from the text.
+- The `duration` and `duration_ce` losses should both slowly go down. The main danger here is overfitting. So if you see validation loss stagnate or start going up you should stop training even if training loss is still going down. It is expected that one of the losses might plateau before the other.
+- When you listen to samples, you will get the same version you'd expect to hear during inference. Listen to make sure the voice as a whole is not going to fast or slow or just going past punctuation without pausing. You should no longer expect it to mirror the ground truth exactly, but it should have generalized to the point where it is a plausible and expressive reading. As training proceeds, it should sound more and more like fluent prosody. If there are still pitch or energy issues like warbles or loudness or tone, then those won't be fixed in this stage and you may need to train more in Textual or Acoustic before trying Duration training.
+
+</details>
+
+
+### 3.5 (Optional) Loading a Checkpoint
+
+<details>
+<summary>📘 <b>What is a Checkpoint?</b></summary>
+
+  What is a Checkpoint?
+  - A checkpoint is a disk snapshot of training progress.
+  - Our checkpoints contain:
+    - Model weights for all models
+    - Optimizer state
+    - Training metadata (current epoch, step count, etc.)
+  - You can use the checkpoint to resume in case training is interrupted.
+  - After training is complete, you will use the checkpoint to generate the ONNX model for inference.
+</details>
+
+- To load a checkpoint:
+
+   **uv:**
+    ```
+    uv run stylish-train train /path/to/your/config.yml --stage <stage> --out /path/to/your/output --checkpoint /path/to/your/checkpoint
+    ```
+   **pip:**
+    ```
+    stylish-train train /path/to/your/config.yml --stage <stage> --out /path/to/your/output --checkpoint /path/to/your/checkpoint
+    ```
+
+- You can load a checkpoint from any stage via the `--checkpoint` argument.
+- You still need to set `--stage` appropriately to one of "alignment|acoustic|textual|duration".
+  - If you set it to the same stage as the checkpoint loaded from, it will continue in that stage at the same step number and epoch.
+  - If it is a different stage, it will train the entire stage.
+
+- Please note that Stylish TTS checkpoints are NOT compatible with StyleTTS 2 checkpoints.
+
+
+### 3.6 Exporting to ONNX (for deployment and inference)
+
+- ONNX (Open Neural Network Exchange) is an open standard format for representing machine learning models.
+- Only the models actually needed during inference are exported.
+- They provide a self-contained standalone version of the model optimized for inference.
+- This command will export two ONNX files, one for predicting duration and the other for predicting speech.
+
+   **uv:**
+   ```
+   uv run stylish-train convert /path/to/your/config.yml --duration /path/to/your/duration.onnx --speech /path/to/your/speech.onnx --checkpoint /path/to/your/checkpoint
+   ```
+   **pip:**
+   ```
+   stylish-train convert /path/to/your/config.yml --duration /path/to/your/duration.onnx --speech /path/to/your/speech.onnx --checkpoint /path/to/your/checkpoint
+   ```
+
+- Using the ONNX model for Inference:
+  ```
+  uv run stylish-tts/train/test_onnx.py --duration /path/to/your/output/duration.onnx --speech /path/to/your/output/speech.onnx \
+      --text "ðˈiːz wˈɜː tˈuː hˈæv ˈæn ɪnˈɔːɹməs ˈɪmpækt , nˈɑːt ˈoʊnliː bɪkˈɔz ðˈeɪ wˈɜː əsˈoʊsiːˌeɪtᵻd wˈɪð kˈɑːnstəntˌiːn ," \
+      --text "bˈʌt ˈɔlsoʊ bɪkˈɔz , ˈæz ɪn sˈoʊ mˈɛniː ˈʌðɚ ˈɛɹiːəz , ðə dɪsˈɪʒənz tˈeɪkən bˈaɪ kˈɑːnstəntˌiːn ( ˈɔːɹ ɪn hˈɪz nˈeɪm ) wˈɜː tˈuː hˈæv ɡɹˈeɪt səɡnˈɪfɪkəns fˈɔːɹ sˈɛntʃɚiːz tˈuː kˈʌm ." \
+      --combine true
+  ```
+  The `text` parameters in the above example have content as phonemes, corresponding to the following transcript:
+    - "These were to have an enormous impact, not only because they were associated with Constantine, but also because, as in so many other areas, the decisions taken by Constantine (or in his name) were to have great significance for centuries to come."
+
+
+# 4. Other Forms of Model Training
+
+### 4.1 Training New Languages
+
+- Grapheme to Phoneme (G2P)
+  - Grapheme-to-phoneme conversion (G2P) is the task of transducing graphemes (i.e. text or letter(s) that spells a sound) to phonemes (i.e. the sound).
+  - Each language has its own phonetic rules, and therefore, requires a distinct G2P system. Accurate G2P is critical for the performance of text-to-speech (TTS).
+  - The most effective G2P systems are typically tailored to specific languages. These can often be found in research papers focused on phonetics or TTS—try searching for terms like "[language] G2P/TTS site:arxiv.org" or "[language] G2P site:github.com". Libraries such as [misaki](https://github.com/hexgrad/misaki/) may also provide such G2P systems.
+  - A commonly used multilingual G2P system is `espeak-ng`, though its accuracy can vary depending on the language. In some cases, a simple approach - using word-to-phoneme mappings from sources like Wiktionary - can be sufficient.
+
+- Adjust model.yml
+
+    <details>
+    <summary>(Expand to read) What is model.yml used for?</summary>
+
+    What is model.yml used for?
+    - [model.yml](src/stylish_tts/train/config/model.yml) holds the hyperparameters to the model.
+    - Most of the time, you will use this by default. However, in rare circumstances, it can be edited, say, if you want to experiment with different options or need to change a specific aspect of the model.
+    - ---
+    </details>
+
+  - If the G2P don't share the same phonetic symbol set in `model.yml`, change the `symbol` section and `text_encoder.tokens`.
+  - `text_encoder.tokens` should be equal to length of `symbol.pad` + `symbol.punctuation` + `symbol.letters` + `symbol.letters_ipa`
+    ```
+    ...
+    text_encoder:
+      tokens: 178 # number of phoneme tokens
+      hidden_dim: 192
+      filter_channels: 768
+      heads: 2
+      layers: 6
+      kernel_size: 3
+      dropout: 0.1
+
+    ...
+
+    symbol:
+      pad: "$"
+      punctuation: ";:,.!?¡¿—…\"()“” "
+      letters: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+      letters_ipa: "ɑɐɒæɓʙβɔɕçɗɖðʤəɘɚɛɜɝɞɟʄɡɠɢʛɦɧħɥʜɨɪʝɭɬɫɮʟɱɯɰŋɳɲɴøɵɸθœɶʘɹɺɾɻʀʁɽʂʃʈʧʉʊʋⱱʌɣɤʍχʎʏʑʐʒʔʡʕʢǀǁᵊǃˈˌːˑʼʴʰʱʲʷˠˤ˞↓↑→↗↘'̩'ᵻ"
+
+    ```
+
+
+# 5. Roadmap to v1.0 Release
+Pending tasks:
+- [x] Rework the CLI (Command Line Interface)
 - [x] Merge disc-opt into main
-- [ ] Verify ONNX conversion
-- [x] Rework CLI
 - [x] Import pitch cache script and make it use a concurrent.futures worker pool
-- [ ] Make sure it can work as a PyPi package
 - [x] Do proper stage detection in dataloader to prevent mixups with precached alignment/pitch
+- [ ] Verify final model architecture
+- [ ] Verify ONNX conversion
+- [ ] Make sure it can work as a PyPi package
 - [ ] Replace checkpointing with safetensors instead of accelerator checkpoint
 - [ ] Remove dependency on accelerator
 - [ ] Audit dependencies
 - [ ] Audit and fix any remaining torch warnings
 - [ ] Move test_onnx to stylish-tts module and remake it into at least a barebones inferencer.
+- [ ] Update this README with Sample / Demo audio clips
 
-# Getting Started
 
-## Dependencies
+# 6. License
+- All original code in this repository is <b>MIT-licensed.</b>
+- Most code from other sources is <b>MIT-licensed.</b>
+- A BSD license is included as a comment for the limited amount of code that was <b>BSD-licensed.</b>
 
-The biggest dependency is of course the nvidia/CUDA drivers/system.
 
-After those are installed, you can run the training code using uv which will take care of all the other python dependencies. Install uv via:
+# 7. Citations
+<details>
+<summary>View Citations</summary>
 
-```
-pipx install uv
-pipx ensure-path
-```
-
-# Training a Model
-
-In order to train your model, you need a GPU (or CPU and plenty of time) with PyTorch support and you will need a dataset. You will need your own `config.yml` file created from a template [here](https://github.com/Stylish-TTS/stylish-tts/blob/main/config/config.yml). You will need to specify the device ("cuda" or "cpu" or whatever will work with your torch installation).
-
-You will need to fill in the `dataset` section. The `path` should be the root of your dataset, and the various other paths in this section are relative to that root. If you use the default file and directory names, your directory structure will look something like this:
-
-```
-path/to/your/dataset/             # Root
-|
-+-> train-list.txt                # Training list file (described below)
-|
-+-> val-list.txt                  # Validation list file (described below)
-|
-+-> wav-dir                       # Folder with wav files for segments
-|   |
-|   +-> something.wav
-|   |
-|   +-> other.wav
-|   |
-|   +-> ...
-|
-+-> pitch.safetensors             # Pre-cached segment pitches. You will generate this file below
-|
-+-> alignment.safetensors         # Pre-cached alignments. You will generate this file below
-|
-+-> alignment_model.safetensors   # Model for generating alignments. You will train this below
-
-```
-
-## Preparing a dataset
-
-A dataset consists of many segments. Each segment has a written text and an audio file where that text is spoken by a reader. 
-
-### Segment Distribution
-
-Segments must have 510 phonemes or less. Audio segments must be at least 0.25 seconds long. The upper limit on audio length is determined by your VRAM and the training stage. Generally speaking, you will want to have a distribution of segments between 0.25 seconds and 10 seconds long. If your range doesn't cover the shortest lengths, your model will sound worse when doing short utterances of one word or a few words. If your range doesn't cover longer lengths which include multiple sentences, your model will tend to skip past punctuation too quickly. If you have a the VRAM, you can include even longer segments, though there are diminishing returns.
-
-### Training List / Validation List
-
-Training and validation lists are a series of lines in the following format:
-
-`<filename>|<phonemes>|<speaker-id>|<plaintext>`
-
-The filename for the segment audio and should be a .wav file (24 khz, mono) in the wav_path from your config.yml.
-
-The phonemes are the IPA representation of how your segment text is pronounced.
-
-Speaker ID is an arbitrary integer which should be applied to every segment that has the same speaker. For single-speaker datasets, this will typically always be '0'.
-
-The plaintext is the original text of your utterance before phonemization. It does not need to be tokenized or normalized, but obviously should not include the '|' character.
-
-### Pitch Data
-
-Stylish TTS uses a pre-cached ground truth pitch (F0) for all your segments. To generate these pitches, run:
-
-```
-cd stylish-tts
-uv run stylish-train pitch /path/to/your/config.yml --workers 16
-```
-
-The number of workers should be approximately equal to the number of cores you have. By default, Harvest is used to extract pitch which is a CPU-based system. If you find this too slow, there is also a GPU-based option available by passing `--method rmvpe` on the command line. When finished, it will write the pre-cached pitches at the file specified by your `config.yml`.
-
-### Alignment Data
-
-Alignment data is also pre-cached and you will need to train an alignment model first to generate the pre-cached data. This is a multi-step process but only needs to be done once for your dataset after which you can just use the cached results similar to pitch data.
-
-First, you run train.py using the special alignment stage. For a description of the other parameters, see below.
-
-#### Expectations during alignment pre-training
-
-In this stage, a special adjustment is made to training parameters at the end of each epoch. The adjustment means there will be a discontinuity in the training curve between epochs. This adjustment will eventually make the loss turn NEGATIVE. This is normal. If your training align_loss does not eventually go negative, you likely need to train more.
-
-At each validation step, both an un-adjusted align_loss and a confidence score are generated. align_loss should be going down. Confidence should be going up. You want to pick a number of epochs so that these scores reach the knee in their curve. Do not keep training forever just because they are slowly going down. If you run into issues where things are not converging later, it is likely that you need to come back to this step and train a different amount to hit that knee in the curve of loss.
-
-During alignment pre-training, we ALSO train on the validation set. This is usually a very very bad thing in ML. But in this case, the alignment model will never be used for aligning out-of-distribution segments. Doing this gives us a more representative sample for acoustic and textual training and does not have any other effects on overall training.
-
-```
-cd stylish-tts
-uv run stylish-train train-align /path/to/your/config.yml --out /path/to/your/output
-```
-
-The `--out` option is where logs and checkpoints will end up. Once the alignment stage completes, it will provide a trained model at the file specified in your `config.yml`. It is important to realize that this is a MODEL, not the alignments themselves. We will use this model to generate the alignments.
-
-```
-cd stylish-tts
-uv run stylish-train align /path/to/your/config.yml
-```
-
-This generates the actual cached alignments for all the segments for both training and validation data as configured in your config.yml. You should now add the resulting alignment.safetensors path to your config.yml.
-
-#### OPTIONAL: Culling Bad Alignments
-
-Running align_text.py generates a score for every segment it processes. These scores are written to files in your dataset `path`. This is a confidence value. Confidence is not a guarantee of accuracy. The model might be confidently wrong of course. But it is a safe bet that the segments it is least confident about either have a problem (perhaps the text doesn't match the audio) or are just a bad fit for the model's heuristics. Culling the segments with the least confidence will make your model converge faster, though it also means it will see less training data. I have found that culling the 10% with the lowest confidence scores is a good balance.
-
-## Starting a training run
-
-All of the commands above should only need to be done once per dataset as long as the dataset does not change. Once they are done, their results are kept in your dataset directory. Now we begin actually training.
-
-Here is a typical command to start off a new training run using a single machine.
-
-```
-cd stylish-tts
-uv run stylish-train train /path/to/your/config.yml --out /path/to/your/output
-```
-
---out: This is the destination path for all checkpoints, training logs, and tensorboard data. A separate sub-directory is created for each stage of training. Make sure to have plenty of disk space available here as checkpoints can take a large amount of storage.
-
-Training happens over the course of four stages. When you begin training, it will start with the `acoustic` stage by default. The main four stages of training are `acoustic`, `textual`, `style`, and `duration`. As each stage ends, the next will automatically begin. You can specify a stage with the `--stage` option which is necessary if you are resuming from a checkpoint. Each stage has its own logs and tensorboard data in a separate subdirectory of the out_dir.
-
-
-## Expectations during training
-
-It will take a long time to run this script. So it is a good idea to run using screen or tmux to have a persistent shell that won't disappear if you get disconnected or close the window.
-
-Stages advance automatically and a checkpoint is created at the end of every stage before moving to the next. Other checkpoints will be saved and validations will be periodically run based on your config.yml settings. Every stage will have its own sub-directory of `out` and its own training log and tensorboard graphs/samples.
-
-### Acoustic training
-
-Acoustic training is about training the fundamental acoustic speech prediction models which feed into the vocoder. We 'cheat' by feeding these models parameters derived directly from the audio segments. The pitch, energy, and alignments all come from our target audio. Pitch and energy are still being trained here, but they are not being used to generate predicted audio.
-
-The main loss figure to look at is `mel` which is a perceptual similarity of the generated audio to the ground truth. It should slowly decrease during training, but the exact point at which it converges will depend on your dataset. The other loss figures can generally be ignored and may not vary much during training.
-
-By the end of acoustic training, the samples should sound almost identical to ground-truth. These are probably going to be the best-sounding samples you listen to. But of course this is because it is doing the easiest version of the task.
-
-### Textual training
-
-In textual training, the acoustic speech prediction is frozen while the focus of training becomes pitch and energy. An acoustic style model still 'cheats' by using audio to generate a prosodic style. This style along with the base text are what is used to calculate the pitch and energy values for each time location.
-
-Here, `mel`, `pitch`, and `energy` losses are all important. You should expect mel loss to always be much higher in this stage than the acoustic stage. And it will only very gradually go down. Since there are three losses here, keeping an eye on total loss is more useful. It will be a lot less stable than in acoustic, but there is still a clear trend downwards.
-
-As training goes on, the voice should sound less strained, less 'warbly', and more natural. Make sure you are listening for the tone of the sound and how loud it is rather than strict prosody because the samples are still using the ground truth alignment.
-
-### Style training
-
-Here the only 'cheating' we do is to use the ground-truth alignment. The predicted pitch and energy are used to directly predict the audio. A textual style encoder is trained to produce the same outputs as the acoustic model from the previous stage.
-
-Aside from that, the training regimen should look a lot like the previous stage. `mel`, `pitch`, and `energy` should all trend downward but expect `mel` to be higher than the previous stage.
-
-### Duration training
-
-The final stage of training removes our last 'cheat' and trains the duration predictor to try to replicate the prosody of the original. The other models are frozen. All samples use only values predicted from the text.
-
-The `duration` and `duration_ce` losses should both slowly go down. The main danger here is overfitting. So if you see validation loss stagnate or start going up you should stop training even if training loss is still going down. It is expected that one of the losses might plateau before the other.
-
-When you listen to samples, you will get the same version you'd expect to hear during inference. Listen to make sure the voice as a whole is not going to fast or slow or just going past punctuation without pausing. You should no longer expect it to mirror the ground truth exactly, but it should have generalized to the point where it is a plausible and expressive reading. As training proceeds, it should sound more and more like fluent prosody. If there are still pitch or energy issues like warbles or loudness or tone, then those won't be fixed in this stage and you may need to train more in Textual or Acoustic before trying Duration training.
-
-## Loading a checkpoint
-
-```
-cd stylish-tts
-uv run stylish-train train \
-    /path/to/your/config.yml \
-    --stage <stage>
-    --out /path/to/your/output \
-    --checkpoint /path/to/your/checkpoint
-```
-
-You can load a checkpoint from any stage via the --checkpoint argument. You still need to set --stage appropriately to one of "alignment|acoustic|acoustic|textual|textual|duration". If you set it to the same stage as the checkpoint loaded from, it will continue in that stage at the same step number and epoch. If it is a different stage, it will train the entire stage.
-
-Note that Stylish TTS checkpoints are not compatible with StyleTTS 2 checkpoints.
-
-# Export to ONNX
-This command will export two ONNX files, one for predicting duration and the other for predicting speech.
-
-```sh
-cd stylish-tts
-uv run stylish-train convert \
-    /path/to/your/config.yml \
-    --duration /path/to/your/duration.onnx
-    --speech /path/to/your/speech.onnx \
-    --checkpoint /path/to/your/checkpoint
-```
-
-Using the ONNX model:
-```sh
-cd stylish-tts
-uv run stylish-tts/train/test_onnx.py
-    --speech /path/to/your/output/speech.onnx \
-    --duration /path/to/your/output/duration.onnx \
-    --text "ðˈiːz wˈɜː tˈuː hˈæv ˈæn ɪnˈɔːɹməs ˈɪmpækt , nˈɑːt ˈoʊnliː bɪkˈɔz ðˈeɪ wˈɜː əsˈoʊsiːˌeɪtᵻd wˈɪð kˈɑːnstəntˌiːn ," \
-    --text "bˈʌt ˈɔlsoʊ bɪkˈɔz , ˈæz ɪn sˈoʊ mˈɛniː ˈʌðɚ ˈɛɹiːəz , ðə dɪsˈɪʒənz tˈeɪkən bˈaɪ kˈɑːnstəntˌiːn ( ˈɔːɹ ɪn hˈɪz nˈeɪm ) wˈɜː tˈuː hˈæv ɡɹˈeɪt səɡnˈɪfɪkəns fˈɔːɹ sˈɛntʃɚiːz tˈuː kˈʌm ." \
-    --combine true
-```
-
-Content: These were to have an enormous impact, not only because they were associated with Constantine, but also because, as in so many other areas, the decisions taken by Constantine (or in his name) were to have great significance for centuries to come.
-
-# Training New Languages
-
-## Grapheme to Phoneme (G2P)
-
-Grapheme-to-phoneme conversion (G2P) is the task of transducing graphemes (i.e. letter(s) that spells a sound) to phonemes (i.e. the sound).  Each language has its own phonetic rules, therefore requires a distinct G2P system. Accurate G2P is critical for the performance of text-to-speech (TTS).
-
-The most effective G2P systems are typically tailored to specific languages. These can often be found in research papers focused on phonetics or TTS—try searching for terms like "[language] G2P/TTS site:arxiv.org" or "[language] G2P site:github.com". Libraries such as [misaki](https://github.com/hexgrad/misaki/) may also provide such G2P systems.
-
-A commonly used multilingual G2P system is `espeak-ng`, though its accuracy can vary depending on the language. In some cases, a simple approach—using word-to-phoneme mappings from sources like Wiktionary—can be sufficient.
-
-## Adjust model.yml
-
-If the G2P don't share the same phonetic symbol set in `model.yml`, change symbol section and text_encoder.tokens. text_encoder.tokens should be equal to length of pad + punctuation + letters + letters_ipa
-```
-...
-text_encoder:
-  tokens: 178 # number of phoneme tokens
-  hidden_dim: 192
-  filter_channels: 768
-  heads: 2
-  layers: 6
-  kernel_size: 3
-  dropout: 0.1
-
-...
-
-symbol:
-  pad: "$"
-  punctuation: ";:,.!?¡¿—…\"()“” "
-  letters: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-  letters_ipa: "ɑɐɒæɓʙβɔɕçɗɖðʤəɘɚɛɜɝɞɟʄɡɠɢʛɦɧħɥʜɨɪʝɭɬɫɮʟɱɯɰŋɳɲɴøɵɸθœɶʘɹɺɾɻʀʁɽʂʃʈʧʉʊʋⱱʌɣɤʍχʎʏʑʐʒʔʡʕʢǀǁᵊǃˈˌːˑʼʴʰʱʲʷˠˤ˞↓↑→↗↘'̩'ᵻ"
-
-```
-
-# Citations
-
-Most code taken from other sources is MIT-licensed and all original code in this repository is MIT-licensed. A BSD license is included as a comment before the few pieces of code which were BSD-licensed.
-
-- The foundation of this work is StyleTTS and StyleTTS 2 
+- The foundation of this work is StyleTTS and StyleTTS 2
   - "StyleTTS: A Style-Based Generative Model for Natural and Diverse Text-to-Speech Synthesis" by Yinghao Aaron Li, Cong Han, Nima Mesgarani [Paper](https://arxiv.org/abs/2205.15439) [Code](https://github.com/yl4579/StyleTTS)
   - "StyleTTS 2: Towards Human-Level Text-to-Speech through Style Diffusion and Adversarial Training with Large Speech Language Models" by Yinghao Aaron Li, Cong Han, Vinay S. Raghavan, Gavin Mischler, Nima Mesgarani [Paper](https://arxiv.org/abs/2306.07691) [Code](https://github.com/yl4579/StyleTTS2)
 
@@ -292,9 +602,13 @@ Most code taken from other sources is MIT-licensed and all original code in this
   - Attention code from Conformer implementation by Lucidrains [Code](https://github.com/lucidrains/conformer/blob/fc70d518d3770788d17a5d9799e08d23ad19c525/conformer/conformer.py#L66)
 
 - Duration prediction
-  - Ordinal regression loss: "Class Distance Weighted Cross-Entropy Loss for Ulcerative Colitis Severity Estimation" by Gorkem Polat, Ilkay Ergenc, Haluk Tarik Kani, Yesim Ozen Alahdab, Ozlen Atug, Alptekin Temizel [Paper](https://arxiv.org/abs/2202.05167)
+  <!-- - Ordinal regression loss: "Class Distance Weighted Cross-Entropy Loss for Ulcerative Colitis Severity Estimation" by Gorkem Polat, Ilkay Ergenc, Haluk Tarik Kani, Yesim Ozen Alahdab, Ozlen Atug, Alptekin Temizel [Paper](https://arxiv.org/abs/2202.05167)
+  -->
+  - "Conformal Prediction Sets for Ordinal Classification" by Prasenjit Dey, Srujana Merugu, Sivaramakrishnan (Siva) Kaveri [Paper](https://www.amazon.science/publications/conformal-prediction-sets-for-ordinal-classification)
 
 - ONNX Compatibility
-  - Kokoro [Code](https://github.com/hexgrad/kokoro) 
+  - Kokoro [Code](https://github.com/hexgrad/kokoro)
   - Custom STFT Contributed to Kokoro by [Adrian Lyjak](https://github.com/adrianlyjak)
   - Loopless Duration Contributed to Kokoro by [Hexgrad](https://github.com/hexgrad)
+
+</details>
