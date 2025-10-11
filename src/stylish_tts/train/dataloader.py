@@ -207,7 +207,8 @@ class Collater(object):
         paths = ["" for _ in range(batch_size)]
         waves = torch.zeros((batch_size, batch[0][3].shape[-1])).float()
         pitches = torch.zeros((batch_size, mel_length)).float()
-        alignments = torch.zeros((batch_size, max_text_length, mel_length))
+        alignments = torch.zeros((batch_size, 1, max_text_length))
+        # alignments = torch.zeros((batch_size, max_text_length, mel_length))
         # alignments = torch.zeros((batch_size, max_text_length, mel_length // 2))
 
         for bid, (
@@ -232,21 +233,22 @@ class Collater(object):
                 pitches[bid] = pitch
 
             # alignments[bid, :text_size, : mel_length // 2] = duration
-            pred_dur = duration[0]
-            for i in range(pred_dur.shape[0] - 1):
-                if pred_dur[i] > 1 and pred_dur[i + 1] > 1:
-                    pick = random.random()
-                    if pick < duration[1][i]:
-                        pred_dur[i] += 1
-                        pred_dur[i + 1] -= 1
-                    elif pick < duration[1][i] + duration[2][i]:
-                        pred_dur[i] -= 1
-                        pred_dur[i + 1] += 1
-            alignment = self.train.duration_processor.duration_to_alignment(pred_dur)
-            if self.stage != "alignment":
-                if alignment.shape[1] != mel_length:
-                    exit(f"Alignment for segment {path} did not match audio length")
-                alignments[bid, :text_size, :mel_length] = alignment
+            # pred_dur = duration[0]
+            # for i in range(pred_dur.shape[0] - 1):
+            #     if pred_dur[i] > 1 and pred_dur[i + 1] > 1:
+            #         pick = random.random()
+            #         if pick < duration[1][i]:
+            #             pred_dur[i] += 1
+            #             pred_dur[i + 1] -= 1
+            #         elif pick < duration[1][i] + duration[2][i]:
+            #             pred_dur[i] -= 1
+            #             pred_dur[i + 1] += 1
+            # alignment = self.train.duration_processor.duration_to_alignment(pred_dur)
+            # if self.stage != "alignment":
+            #     if alignment.shape[1] != mel_length:
+            #         exit(f"Alignment for segment {path} did not match audio length")
+            #     alignments[bid, :text_size, :mel_length] = alignment
+            alignments[bid, :1, :text_size] = duration[:1]
 
         result = (
             waves,

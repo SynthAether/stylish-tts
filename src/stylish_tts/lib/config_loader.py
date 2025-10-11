@@ -135,6 +135,9 @@ class LossWeightConfig(BaseModel):
     duration_ce: float = Field(
         ..., description="Weight for duration cross-entropy loss."
     )
+    dilation: float = Field(
+        ..., description="Weight for dilation loss when training duration"
+    )
     style: float = Field(..., description="Weight for style reconstruction loss.")
     mag: float = Field(..., description="Weight for magnitude prediction loss.")
     phase: float = Field(..., description="Weight for phase prediction loss.")

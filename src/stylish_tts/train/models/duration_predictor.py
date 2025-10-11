@@ -6,7 +6,7 @@ from .common import LinearNorm
 from .text_encoder import TextEncoder
 from .text_style_encoder import TextStyleEncoder
 from .ada_norm import AdaptiveLayerNorm
-from ..utils import sequence_mask
+from ..utils import sequence_mask, length_to_mask
 from torch.nn.utils.parametrizations import weight_norm
 from .text_encoder import MultiHeadAttention
 
@@ -35,6 +35,8 @@ class DurationPredictor(torch.nn.Module):
         )
         self.dropout = torch.nn.Dropout1d(duration_config.last_dropout)
         self.duration_proj = LinearNorm(inter_dim, duration_config.duration_classes)
+        # TODO: Remove this vestigial layer
+        self.coefficient_proj = LinearNorm(inter_dim, 5)
 
         cross_channels = inter_dim
         self.query_norm = AdaptiveLayerNorm(style_dim, cross_channels)
@@ -91,6 +93,7 @@ class DurationPredictor(torch.nn.Module):
         duration = torch.cat([duration[:, :, :1], rest], dim=2)
         duration = torch.cumsum(duration, dim=2)
         duration = -torch.abs(duration)
+        duration = duration * mask.transpose(1, 2)
         return duration
 
 

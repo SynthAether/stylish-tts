@@ -153,7 +153,7 @@ def calculate_alignments(
         text_lengths[0] = text.shape[1]
 
         alignment, scores = torch_align(
-            mels, text, mel_lengths, text_lengths, prediction, model_config
+            mels, text, mel_lengths, text_lengths, prediction, model_config, name
         )
         # alignment = teytaut_align(mels, text, mel_lengths, text_lengths, prediction)
         alignment_map[name] = alignment
@@ -161,12 +161,7 @@ def calculate_alignments(
     return alignment_map, scores_map
 
 
-def torch_align(mels, text, mel_length, text_length, prediction, model_config):
-    # prediction = rearrange(prediction, "b t k -> b k t")
-    # prediction = F.interpolate(prediction, scale_factor=2, mode="linear")
-    # prediction = rearrange(prediction, "b k t -> b t k")
-    # prediction = prediction.contiguous()
-    # mel_length *= 2
+def torch_align(mels, text, mel_length, text_length, prediction, model_config, name):
     blank = model_config.text_encoder.tokens
     alignment, scores = torchaudio.functional.forced_align(
         log_probs=prediction,
@@ -202,26 +197,60 @@ def torch_align(mels, text, mel_length, text_length, prediction, model_config):
                 "WARNING: the alignment doesn't match the sequence, likely an untrained model."
             )
     pred_dur = atensor.sum(dim=2).squeeze(0)
-    left = torch.zeros_like(pred_dur, dtype=torch.float)
-    right = torch.zeros_like(pred_dur, dtype=torch.float)
-    index = 0
-    for i in range(pred_dur.shape[0] - 1):
-        index += pred_dur[i]
-        left_token = text[0, i]
-        right_token = text[0, i + 1]
-        left_prob = math.exp(
-            prediction[0, index - 1, left_token] + prediction[0, index, left_token]
-        )
-        split_prob = math.exp(
-            prediction[0, index - 1, left_token] + prediction[0, index, right_token]
-        )
-        right_prob = math.exp(
-            prediction[0, index - 1, right_token] + prediction[0, index, right_token]
-        )
-        denom = left_prob + split_prob + right_prob
-        left[i] = left_prob / denom
-        right[i] = right_prob / denom
-    return torch.stack([pred_dur, left, right]), scores
+    result = torch.zeros(
+        [1, pred_dur.shape[0]], dtype=torch.float, device=pred_dur.device
+    )
+    result[0] = pred_dur
+    # pred_dur = torch.nn.functional.pad(pred_dur, (3, 3))
+    # pred_dur = pred_dur.cpu().numpy()
+    # end_indices = pred_dur.cumsum() + 3
+    # begin_indices = end_indices - pred_dur
+    # mean_list = (begin_indices + end_indices - 1) / 2
+
+    # prediction = prediction.transpose(1, 2)
+    # prediction = torch.nn.functional.pad(prediction, (3, 3), value=-1e9)
+    # prediction = prediction.transpose(1, 2)
+
+    # for i in range(3, pred_dur.size - 3):
+    #     begin = begin_indices[i] - 3
+    #     end = end_indices[i] + 3
+    #     center = mean_list[i]
+    #     y_data = prediction[0, begin:end, text[0, i-3]].exp().cpu().numpy()
+    #     y_data[0] = 0.0
+    #     y_data[-1] = 0.0
+    #     # y_max = y_data.max()
+    #     # y_data = y_data / (y_max + 1e-9)
+    #     x_data = numpy.arange(begin, end) - center
+    #     series = numpy.polynomial.polynomial.Polynomial.fit(
+    #         x=x_data,
+    #         y=y_data,
+    #         deg=4,
+    #         rcond=0.05,
+    #     )
+    #     # series = series.convert()
+    #     for j in range(5):
+    #         result[j+1, i-3] = series.coef[j]
+    return result, scores
+    # left = torch.zeros_like(pred_dur, dtype=torch.float)
+    # right = torch.zeros_like(pred_dur, dtype=torch.float)
+    # index = 0
+    # for i in range(pred_dur.shape[0] - 1):
+    #     index += pred_dur[i]
+    #     left_token = text[0, i]
+    #     right_token = text[0, i + 1]
+    #     left_prob = math.exp(
+    #         prediction[0, index - 1, left_token] + prediction[0, index, left_token]
+    #     )
+    #     split_prob = math.exp(
+    #         prediction[0, index - 1, left_token] + prediction[0, index, right_token]
+    #     )
+    #     right_prob = math.exp(
+    #         prediction[0, index - 1, right_token] + prediction[0, index, right_token]
+    #     )
+    #     denom = left_prob + split_prob + right_prob
+    #     left[i] = left_prob / denom
+    #     right[i] = right_prob / denom
+    # return torch.stack([pred_dur, left, right]), scores
 
 
 def teytaut_align(mels, text, mel_length, text_length, prediction):

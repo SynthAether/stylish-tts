@@ -184,11 +184,11 @@ class Stage:
                 if train.accelerator.is_main_process and len(samples) > 0:
                     steps = train.manifest.current_total_step
                     sample_rate = train.model_config.sample_rate
-                    if attention is not None:
-                        attention = attention.cpu().numpy().squeeze()
-                        train.writer.add_figure(
-                            f"eval/attention_{index}", get_image(attention), steps
-                        )
+                    # if attention is not None:
+                    #     attention = attention.cpu().numpy().squeeze()
+                    #     train.writer.add_figure(
+                    #         f"eval/attention_{index}", get_image(attention), steps
+                    #     )
                     for inputs_index, samples_index in samples:
                         mel_gt_np = None
                         mel_pred_log_np = None
